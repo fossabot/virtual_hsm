@@ -45,7 +45,27 @@ Input/Output:
 #### Piping
 If you're piping the output to another command or file, you might want to add a newline character after the key is printed. If that's the case, you add a flag called -pipe so it adds a printf("\n"); after the fwrite call.
 
-```./virtual_hsm -pipe -retrieve myappseckey```
+##### Retrieve a key with newline (for piping or file output)
+```./virtual_hsm -retrieve myappseckey -pipe```
+
+##### Example of piping the output
+```./virtual_hsm -retrieve myappseckey -pipe | xxd -p```
+
+#### key and file commands
+
+Yoy can manage multiple keystores with different master keys. The program will use the default file names if the -keystore and -master flags are not provided. Example commands using the flags:
+
+##### Using default file names
+```echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey```
+
+##### Using custom file names
+```echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -store myappseckey```
+
+##### Retrieving a key with custom file names and piping
+```./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -retrieve myappseckey -pipe```
+
+##### Listing keys with custom file names
+```./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -list```
 
 ## Flaws
 
