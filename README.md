@@ -94,6 +94,36 @@ In a GitHub Actions workflow, you could set up a secret named MASTER_KEY and use
 
 Learning Moment: This approach allows you to securely pass the master key without storing it in a file, which can be useful in CI/CD environments or when you want to avoid writing the key to disk!
 
+## Generating a Key compatible with GitHub Secrets via Actions WorkFlow
+
+* You can use the program to generate a master key suitable for use as a GitHub Secret.
+
+Here is how:
+
+```./virtual_hsm -generate_master_key```
+
+Could generate for example:
+
+``
+`Generated Master Key (hex format for GitHub Secret):
+0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+``
+
+You can then use this output to create a new GitHub Secret:
+
+* In your GitHub repository, go to Settings > Secrets and variables > Actions.
+* Click on "New repository secret".
+* Name the secret (e.g., "MASTER_KEY").
+* Paste the generated hexadecimal string as the secret value.
+* Click "Add secret".
+
+Then to run it in our Actions Workflow:
+
+```
+- name: Run virtual HSM
+  run: ./virtual_hsm -master_key ${{ secrets.MASTER_KEY }} -store my_key
+```
+
 ## Flaws
 
 To my students, this is certainly missing:
