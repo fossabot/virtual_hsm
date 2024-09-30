@@ -21,7 +21,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        ./virtual_hsm -generate_and_update_master_key ${{ github.repository_owner }} ${{ github.repository }}
+        ./virtual_hsm -generate_master_key ${{ github.repository_owner }} ${{ github.repository }}
         if [ $? -ne 0 ]; then
           echo "Error: Failed to generate and update master key"
           exit 1
