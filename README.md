@@ -48,8 +48,14 @@ If you're piping the output to another command or file, you might want to add a 
 ##### Retrieve a key with newline (for piping or file output)
 ```./virtual_hsm -retrieve myappseckey -pipe```
 
-##### Example of piping the output
+##### Example of piping the output (hex)
 ```./virtual_hsm -retrieve myappseckey -pipe | xxd -p```
+
+#### Example of piping plaintext to file
+```./virtual_hsm -retrieve myappseckey -pipe > plain.key```
+
+#### Example of piping plaintext to environmental variable
+```export MY_SECRET_KEY=$(./virtual_hsm -retrieve myappseckey -pipe)```
 
 #### key and file commands
 
