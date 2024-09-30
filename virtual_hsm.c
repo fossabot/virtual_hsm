@@ -1,3 +1,5 @@
+#define DEBUG_PRINT(fmt, ...) fprintf(stderr, "Debug: " fmt "\n", ##__VA_ARGS__)
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,15 +98,15 @@ void save_keystore() {
 }
 
 void load_keystore() {
-    fprintf(stderr, "Debug: Entering load_keystore function\n");
+    DEBUG_PRINT("Entering load_keystore function");
     FILE *file = fopen(keystore_file, "rb");
     if (file != NULL) {
         fread(&key_count, sizeof(int), 1, file);
         fread(keystore, sizeof(KeyEntry), key_count, file);
         fclose(file);
-        fprintf(stderr, "Debug: Keystore loaded with %d keys\n", key_count);
+        DEBUG_PRINT("Keystore loaded with %d keys", key_count);
     } else {
-        fprintf(stderr, "Debug: No existing keystore found\n");
+        DEBUG_PRINT("No existing keystore found");
     }
 }
 
@@ -155,6 +157,7 @@ int decrypt_key(const unsigned char *ciphertext, int ciphertext_len, unsigned ch
 }
 
 void store_key(const char *name, const unsigned char *key) {
+    DEBUG_PRINT("Entering store_key function for key '%s'", name);
     if (key_count >= MAX_KEYS) {
         fprintf(stderr, "Error: Keystore is full.\n");
         exit(1);
@@ -179,21 +182,24 @@ void store_key(const char *name, const unsigned char *key) {
         fprintf(stderr, "Error: Failed to encrypt key.\n");
         exit(1);
     }
+    DEBUG_PRINT("Key '%s' encrypted successfully", name);
     save_keystore();
+    DEBUG_PRINT("Keystore saved successfully");
     printf("Key stored successfully.\n");
 }
 
 void retrieve_key(const char *name, int pipe_mode) {
-    fprintf(stderr, "Debug: Entering retrieve_key function for key '%s'\n", name);
+    DEBUG_PRINT("Entering retrieve_key function for key '%s'", name);
     for (int i = 0; i < key_count; i++) {
         if (strcmp(keystore[i].name, name) == 0) {
-            fprintf(stderr, "Debug: Key '%s' found in keystore\n", name);
+            DEBUG_PRINT("Key '%s' found in keystore", name);
             unsigned char decrypted_key[KEY_SIZE];
             int decrypted_len = decrypt_key(keystore[i].encrypted_key, keystore[i].encrypted_len, decrypted_key, keystore[i].iv);
             if (decrypted_len != KEY_SIZE) {
                 fprintf(stderr, "Error: Decrypted key length mismatch. Expected %d, got %d\n", KEY_SIZE, decrypted_len);
                 exit(1);
             }
+            DEBUG_PRINT("Key '%s' decrypted successfully", name);
             fprintf(stderr, "Debug: Retrieved key for '%s' (hex): ", name);
             for (int j = 0; j < KEY_SIZE; j++) {
                 fprintf(stderr, "%02x", decrypted_key[j]);
