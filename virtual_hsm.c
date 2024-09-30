@@ -60,8 +60,8 @@ void load_master_key(const char *provided_key) {
     DEBUG_PRINT("Entering load_master_key function");
     if (provided_key) {
         DEBUG_PRINT("Master key provided via command line");
-        if (strlen(provided_key) != KEY_SIZE * 2) {
-            fprintf(stderr, "Error: Invalid master key length. Expected %d characters, got %zu.\n", KEY_SIZE * 2, strlen(provided_key));
+        if (strlen(provided_key) != KEY_SIZE) {
+            fprintf(stderr, "Error: Invalid master key length. Expected %d characters, got %zu.\n", KEY_SIZE, strlen(provided_key));
             exit(1);
         }
         for (int i = 0; i < KEY_SIZE; i++) {
