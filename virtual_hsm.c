@@ -182,9 +182,14 @@ void retrieve_key(const char *name, int pipe_mode) {
             unsigned char decrypted_key[KEY_SIZE];
             int decrypted_len = decrypt_key(keystore[i].encrypted_key, keystore[i].encrypted_len, decrypted_key, keystore[i].iv);
             if (decrypted_len != KEY_SIZE) {
-                fprintf(stderr, "Error: Decrypted key length mismatch.\n");
+                fprintf(stderr, "Error: Decrypted key length mismatch. Expected %d, got %d\n", KEY_SIZE, decrypted_len);
                 exit(1);
             }
+            fprintf(stderr, "Debug: Retrieved key for '%s' (hex): ", name);
+            for (int j = 0; j < KEY_SIZE; j++) {
+                fprintf(stderr, "%02x", decrypted_key[j]);
+            }
+            fprintf(stderr, "\n");
             fwrite(decrypted_key, 1, KEY_SIZE, stdout);
             if (pipe_mode) {
                 printf("\n");
@@ -192,7 +197,7 @@ void retrieve_key(const char *name, int pipe_mode) {
             return;
         }
     }
-    fprintf(stderr, "Error: Key not found.\n");
+    fprintf(stderr, "Error: Key '%s' not found.\n", name);
     exit(1);
 }
 
