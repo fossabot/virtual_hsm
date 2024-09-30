@@ -24,21 +24,21 @@ Input/Output:
 * When storing a key, the program reads 32 bytes from stdin. This allows you to pipe in the key data or use input redirection.
 * When retrieving a key, it prints the key in ASCII format to stdout since the goal is provide simple functionality for students to use. 
 
-##Example commands:
+## Example commands:
 
-###Compile:
+### Compile:
 
 ```gcc -o virtual_hsm virtual_hsm.c -lcrypto```
 
-###Key Storage:
+### Key Storage:
 
 ```echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey```
 
-###Key Retrieval:
+### Key Retrieval:
 
 ```./virtual_hsm -retrieve myappseckey```
 
-###Key List:
+### Key List:
 
 ```./virtual_hsm -list```
 
@@ -46,6 +46,8 @@ Input/Output:
 If you're piping the output to another command or file, you might want to add a newline character after the key is printed. If that's the case, you add a flag called -pipe so it adds a printf("\n"); after the fwrite call.
 
 ```./virtual_hsm -pipe -retrieve myappseckey```
+
+## Flaws
 
 To my students, this is certainly missing:
 
