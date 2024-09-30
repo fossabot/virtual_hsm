@@ -23,17 +23,19 @@ jobs:
 
     - name: Generate non-default keys
       run: |
-        ./virtual_hsm -genkey mainGitHub.key
-        ./virtual_hsm -init keystoreGithub.dat
+        ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -list
 
-    - name: Store keys
+    - name: Store ActionKey
       run: |
-        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -store ActionKey
-        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey
+        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store ActionKey
+
+    - name: Store myappseckey
+      run: |
+        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store myappseckey
 
     - name: List keys
       run: |
-        output=$(./virtual_hsm -list)
+        output=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -list)
         echo "$output"
         if [[ "$output" != *"ActionKey"* || "$output" != *"myappseckey"* ]]; then
           echo "Error: Not all expected keys are listed"
@@ -42,7 +44,7 @@ jobs:
 
     - name: Retrieve and verify ActionKey
       run: |
-        retrieved=$(echo -n | ./virtual_hsm -retrieve ActionKey)
+        retrieved=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve ActionKey)
         if [ "$retrieved" != "0123456789abcdef0123456789abcdef" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
           exit 1
@@ -50,7 +52,7 @@ jobs:
 
     - name: Retrieve and verify myappseckey
       run: |
-        retrieved=$(echo -n | ./virtual_hsm -retrieve myappseckey)
+        retrieved=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve myappseckey)
         if [ "$retrieved" != "0123456789appsec0123456789abcdef" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
           exit 1
@@ -58,7 +60,7 @@ jobs:
 
     - name: Retrieve myappseckey to file
       run: |
-        echo -n | ./virtual_hsm -retrieve myappseckey > actiontest.key
+        ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve myappseckey -pipe > actiontest.key
         if [ "$(cat actiontest.key)" != "0123456789appsec0123456789abcdef" ]; then
           echo "Error: actiontest.key does not contain correct myappseckey value"
           exit 1
