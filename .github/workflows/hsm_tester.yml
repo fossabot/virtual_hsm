@@ -63,13 +63,26 @@ jobs:
       env:
         SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
       run: |
-        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve ActionKey)
-        if [ "$retrieved" != "0123456789abcdef0123456789abcdef" ]; then
+        echo "Retrieving ActionKey:"
+        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve ActionKey 2>&1)
+        echo "Debug output: $retrieved"
+        actual_key=$(echo "$retrieved" | grep -v "Debug:" | tr -d '\n')
+        expected_key="0123456789abcdef0123456789abcdef"
+        echo "Expected key: $expected_key"
+        echo "Actual key  : $actual_key"
+        if [ "$actual_key" != "$expected_key" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
           exit 1
         fi
-        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve myappseckey)
-        if [ "$retrieved" != "0123456789appsec0123456789abcdef" ]; then
+
+        echo "Retrieving myappseckey:"
+        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve myappseckey 2>&1)
+        echo "Debug output: $retrieved"
+        actual_key=$(echo "$retrieved" | grep -v "Debug:" | tr -d '\n')
+        expected_key="0123456789appsec0123456789abcdef"
+        echo "Expected key: $expected_key"
+        echo "Actual key  : $actual_key"
+        if [ "$actual_key" != "$expected_key" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
           exit 1
         fi
