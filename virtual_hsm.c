@@ -55,14 +55,17 @@ void generate_master_key() {
 }
 
 void load_master_key(const char *provided_key) {
+    fprintf(stderr, "Debug: Entering load_master_key function\n");
     if (provided_key) {
+        fprintf(stderr, "Debug: Master key provided via command line\n");
         if (strlen(provided_key) != KEY_SIZE * 2) {
-            fprintf(stderr, "Error: Invalid master key length. Expected %d characters.\n", KEY_SIZE * 2);
+            fprintf(stderr, "Error: Invalid master key length. Expected %d characters, got %zu.\n", KEY_SIZE * 2, strlen(provided_key));
             exit(1);
         }
         for (int i = 0; i < KEY_SIZE; i++) {
             sscanf(provided_key + 2*i, "%2hhx", &master_key[i]);
         }
+        fprintf(stderr, "Debug: Master key loaded successfully\n");
         return;
     }
 
@@ -93,11 +96,15 @@ void save_keystore() {
 }
 
 void load_keystore() {
+    fprintf(stderr, "Debug: Entering load_keystore function\n");
     FILE *file = fopen(keystore_file, "rb");
     if (file != NULL) {
         fread(&key_count, sizeof(int), 1, file);
         fread(keystore, sizeof(KeyEntry), key_count, file);
         fclose(file);
+        fprintf(stderr, "Debug: Keystore loaded with %d keys\n", key_count);
+    } else {
+        fprintf(stderr, "Debug: No existing keystore found\n");
     }
 }
 
@@ -177,8 +184,10 @@ void store_key(const char *name, const unsigned char *key) {
 }
 
 void retrieve_key(const char *name, int pipe_mode) {
+    fprintf(stderr, "Debug: Entering retrieve_key function for key '%s'\n", name);
     for (int i = 0; i < key_count; i++) {
         if (strcmp(keystore[i].name, name) == 0) {
+            fprintf(stderr, "Debug: Key '%s' found in keystore\n", name);
             unsigned char decrypted_key[KEY_SIZE];
             int decrypted_len = decrypt_key(keystore[i].encrypted_key, keystore[i].encrypted_len, decrypted_key, keystore[i].iv);
             if (decrypted_len != KEY_SIZE) {
@@ -218,6 +227,7 @@ void print_usage() {
 }
 
 int main(int argc, char *argv[]) {
+    fprintf(stderr, "Debug: Starting virtual_hsm\n");
     int i;
     const char *provided_master_key = NULL;
     for (i = 1; i < argc; i++) {
