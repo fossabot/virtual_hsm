@@ -76,4 +76,5 @@ To my students, this is certainly missing:
 * Audit logging
 * Proper key lifecycle management
 * Protection against side-channel attacks
+* There is no undefined behavior protection. For example filename can go out of bounds, easily!
 
