@@ -1,137 +1,146 @@
 # Virtual Hardware Security Management (HSM) Program
 
-A virtualized hardware security management tool for students to leverage in various assignments for the NYU Application Security course. 
+A virtualized hardware security management tool for students to leverage in various assignments for the NYU Application Security course.
 
-This HSM is exceptionally simple, and is not meant to be a true HSM, but simply a virtualized expression of one that can be addressed via terminal commands. 
-**Do not use in production environments**
+## Table of Contents
+- [Overview](#overview)
+- [Design Notes](#design-notes)
+- [Operation Notes](#operation-notes)
+- [Usage](#usage)
+  - [Compilation](#compilation)
+  - [Key Management](#key-management)
+  - [Piping and File Operations](#piping-and-file-operations)
+  - [Custom Keystore and Master Key Files](#custom-keystore-and-master-key-files)
+- [GitHub Secrets and Actions Workflow](#github-secrets-and-actions-workflow)
+- [Generating a Master Key for GitHub Secrets](#generating-a-master-key-for-github-secrets)
+- [Known Limitations](#known-limitations)
 
-## Design Notes:
+## Overview
 
-* The EVP (Envelope) interface is for encryption and decryption, which is the recommended approach in OpenSSL 3.0.
-* Error handling uses OpenSSL's error reporting functions.
-* AES-256 encryption, unique IV for each key
-* Persistent storage due to keystore.dat and master.key split-paired files.
-* Full support for GitHub Secrets and Actions Workflow passing as Hexadecimal via command line
+This HSM is exceptionally simple and is not meant to be a true HSM, but simply a virtualized expression of one that can be addressed via terminal commands. 
 
-## Operation Notes:
+**Warning: Do not use in production environments**
 
-Two files will be generated upon execution of the program :
+## Design Notes
 
-1) keystore.dat - an encrypted database file storing the key information
-2) master.key - the master.key file required to acccess the HSM. This is paired to keystore.dat. The HSM is agnostic, and works with any generated master.key paired to it's respective keystore.dat.
+- Uses the EVP (Envelope) interface for encryption and decryption, as recommended in OpenSSL 3.0
+- Implements error handling using OpenSSL's error reporting functions
+- Employs AES-256 encryption with a unique IV for each key
+- Provides persistent storage through `keystore.dat` and `master.key` split-paired files
+- Fully supports GitHub Secrets and Actions Workflow passing as Hexadecimal via command line
+
+## Operation Notes
+
+Upon execution, the program generates two files:
+
+1. `keystore.dat`: An encrypted database file storing the key information
+2. `master.key`: The master key file required to access the HSM (paired with `keystore.dat`)
 
 Input/Output:
+- Key storage: Reads 32 bytes from stdin
+- Key retrieval: Prints the key in ASCII format to stdout
 
-* When storing a key, the program reads 32 bytes from stdin. This allows you to pipe in the key data or use input redirection.
-* When retrieving a key, it prints the key in ASCII format to stdout since the goal is provide simple functionality for students to use. 
+## Usage
 
-## Example commands:
+### Compilation
 
-### Compile:
-
-```gcc -o virtual_hsm virtual_hsm.c -lcrypto```
-
-### Key Storage:
-
-```echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey```
-
-### Key Retrieval:
-
-```./virtual_hsm -retrieve myappseckey```
-
-### Key List:
-
-```./virtual_hsm -list```
-
-#### Piping
-If you're piping the output to another command or file, you might want to add a newline character after the key is printed. If that's the case, you add a flag called -pipe so it adds a printf("\n"); after the fwrite call.
-
-##### Retrieve a key with newline (for piping or file output)
-```./virtual_hsm -retrieve myappseckey -pipe```
-
-##### Example of piping the output (hex)
-```./virtual_hsm -retrieve myappseckey -pipe | xxd -p```
-
-#### Example of piping plaintext to file
-```./virtual_hsm -retrieve myappseckey -pipe > plain.key```
-
-#### Example of piping plaintext to environmental variable
-```export MY_SECRET_KEY=$(./virtual_hsm -retrieve myappseckey -pipe)```
-
-#### key and file commands
-
-Yoy can manage multiple keystores with different master keys. The program will use the default file names if the -keystore and -master flags are not provided. Example commands using the flags:
-
-##### Using default file names
-```echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey```
-
-##### Using custom file names
-```echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -store myappseckey```
-
-##### Retrieving a key with custom file names and piping
-```./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -retrieve myappseckey -pipe```
-
-##### Listing keys with custom file names
-```./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -list```
-
-## Passing via Secrets or Command Line Hex
-
-* 'set_master_key_from_hex' will convert a hexadecimal string representation of the master key into bytes.
-* We only call 'load_master_key' if the master key hasn't been set via command-line argument. This way we can pass using Secrets the master key.
-* We can pass the master key directly as a command-line argument using the -master_key option followed by a 64-character hexadecimal string (representing the 32-byte key).
-* This enables compatibility with GitHub Secrets and running the key pass via Actions Workflow.
-
-HEX example:
-
-```./virtual_hsm -master_key 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF -store my_key```
-
-In a GitHub Actions workflow, you could set up a secret named MASTER_KEY and use it like this:
-
+```bash
+gcc -o virtual_hsm virtual_hsm.c -lcrypto
 ```
+
+### Key Management
+
+Store a key:
+```bash
+echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey
+```
+
+Retrieve a key:
+```bash
+./virtual_hsm -retrieve myappseckey
+```
+
+List keys:
+```bash
+./virtual_hsm -list
+```
+
+### Piping and File Operations
+
+Retrieve a key with newline (for piping or file output):
+```bash
+./virtual_hsm -retrieve myappseckey -pipe
+```
+
+Pipe output as hex:
+```bash
+./virtual_hsm -retrieve myappseckey -pipe | xxd -p
+```
+
+Pipe plaintext to file:
+```bash
+./virtual_hsm -retrieve myappseckey -pipe > plain.key
+```
+
+Set environmental variable:
+```bash
+export MY_SECRET_KEY=$(./virtual_hsm -retrieve myappseckey -pipe)
+```
+
+### Custom Keystore and Master Key Files
+
+Store a key with custom file names:
+```bash
+echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -store myappseckey
+```
+
+Retrieve a key with custom file names:
+```bash
+./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -retrieve myappseckey -pipe
+```
+
+List keys with custom file names:
+```bash
+./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -list
+```
+
+## GitHub Secrets and Actions Workflow
+
+You can pass the master key directly as a command-line argument using the `-master_key` option followed by a 64-character hexadecimal string (representing the 32-byte key).
+
+Example:
+```bash
+./virtual_hsm -master_key 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF -store my_key
+```
+
+In a GitHub Actions workflow:
+```yaml
 - name: Run virtual HSM
   run: ./virtual_hsm -master_key ${{ secrets.MASTER_KEY }} -store my_key
 ```
 
-Learning Moment: This approach allows you to securely pass the master key without storing it in a file, which can be useful in CI/CD environments or when you want to avoid writing the key to disk!
+## Generating a Master Key for GitHub Secrets
 
-## Generating a Key compatible with GitHub Secrets via Actions WorkFlow
-
-* You can use the program to generate a master key suitable for use as a GitHub Secret.
-
-Here is how:
-
-```./virtual_hsm -generate_master_key```
-
-Could generate for example:
-
-``
-`Generated Master Key (hex format for GitHub Secret):
-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-``
-
-You can then use this output to create a new GitHub Secret:
-
-* In your GitHub repository, go to Settings > Secrets and variables > Actions.
-* Click on "New repository secret".
-* Name the secret (e.g., "MASTER_KEY").
-* Paste the generated hexadecimal string as the secret value.
-* Click "Add secret".
-
-Then to run it in our Actions Workflow:
-
-```
-- name: Run virtual HSM
-  run: ./virtual_hsm -master_key ${{ secrets.MASTER_KEY }} -store my_key
+Generate a master key suitable for use as a GitHub Secret:
+```bash
+./virtual_hsm -generate_master_key
 ```
 
-## Flaws
+This will output a hexadecimal string that you can use to create a new GitHub Secret:
 
-To my students, this is certainly missing:
+1. In your GitHub repository, go to Settings > Secrets and variables > Actions
+2. Click on "New repository secret"
+3. Name the secret (e.g., "MASTER_KEY")
+4. Paste the generated hexadecimal string as the secret value
+5. Click "Add secret"
 
-* Actual secure memory management
-* Access controls and authentication
-* Audit logging
-* Proper key lifecycle management
-* Protection against side-channel attacks
-* There is no undefined behavior protection. For example, filename can go out of bounds, easily!
+## Known Limitations
 
+This implementation is for educational purposes and lacks several security features found in production HSMs:
+
+- Secure memory management
+- Access controls and authentication
+- Audit logging
+- Proper key lifecycle management
+- Protection against side-channel attacks
+- Undefined behavior protection (e.g., filename bounds checking)
