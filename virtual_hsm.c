@@ -155,9 +155,21 @@ void list_keys() {
     }
 }
 
+int set_master_key_from_hex(const char *hex_key) {
+    if (strlen(hex_key) != KEY_SIZE * 2) {
+        fprintf(stderr, "Error: Invalid master key length. Expected %d characters.\n", KEY_SIZE * 2);
+        return 0;
+    }
+
+    for (int i = 0; i < KEY_SIZE; i++) {
+        sscanf(hex_key + 2*i, "%2hhx", &master_key[i]);
+    }
+    return 1;
+}
+
 void print_usage() {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] <command> [options]\n");
+    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] [-master_key <hex_key>] <command> [options]\n");
     fprintf(stderr, "Commands:\n");
     fprintf(stderr, "  -store <key_name>\n");
     fprintf(stderr, "  -retrieve <key_name> [-pipe]\n");
@@ -166,11 +178,18 @@ void print_usage() {
 
 int main(int argc, char *argv[]) {
     int i;
+    int master_key_set = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-keystore") == 0 && i + 1 < argc) {
             strncpy(keystore_file, argv[++i], MAX_FILENAME - 1);
         } else if (strcmp(argv[i], "-master") == 0 && i + 1 < argc) {
             strncpy(master_key_file, argv[++i], MAX_FILENAME - 1);
+        } else if (strcmp(argv[i], "-master_key") == 0 && i + 1 < argc) {
+            if (set_master_key_from_hex(argv[++i])) {
+                master_key_set = 1;
+            } else {
+                return 1;
+            }
         } else {
             break;
         }
@@ -181,7 +200,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    load_master_key();
+    if (!master_key_set) {
+        load_master_key();
+    }
     load_keystore();
 
     if (strcmp(argv[i], "-store") == 0) {
