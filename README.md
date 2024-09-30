@@ -73,6 +73,26 @@ Yoy can manage multiple keystores with different master keys. The program will u
 ##### Listing keys with custom file names
 ```./virtual_hsm -keystore "appseckeystore.dat" -master "masterAppsec.key" -list```
 
+## Passing via Secrets or Command Line Hex
+
+* 'set_master_key_from_hex' will convert a hexadecimal string representation of the master key into bytes.
+* We only call 'load_master_key' if the master key hasn't been set via command-line argument. This way we can pass using Secrets the master key.
+* We can pass the master key directly as a command-line argument using the -master_key option followed by a 64-character hexadecimal string (representing the 32-byte key).
+* This enables compatibility with GitHub Secrets and running the key pass via Actions Workflow.
+
+HEX example:
+
+```./virtual_hsm -master_key 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF -store my_key```
+
+In a GitHub Actions workflow, you could set up a secret named MASTER_KEY and use it like this:
+
+```
+- name: Run virtual HSM
+  run: ./virtual_hsm -master_key ${{ secrets.MASTER_KEY }} -store my_key
+```
+
+Learning Moment: This approach allows you to securely pass the master key without storing it in a file, which can be useful in CI/CD environments or when you want to avoid writing the key to disk!
+
 ## Flaws
 
 To my students, this is certainly missing:
@@ -82,5 +102,5 @@ To my students, this is certainly missing:
 * Audit logging
 * Proper key lifecycle management
 * Protection against side-channel attacks
-* There is no undefined behavior protection. For example filename can go out of bounds, easily!
+* There is no undefined behavior protection. For example, filename can go out of bounds, easily!
 
