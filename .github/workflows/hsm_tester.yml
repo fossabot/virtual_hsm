@@ -44,9 +44,9 @@ jobs:
         SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
       run: |
         echo "Storing ActionKey:"
-        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store ActionKey 2>&1
+        echo -n "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store ActionKey 2>&1
         echo "Storing myappseckey:"
-        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store myappseckey 2>&1
+        echo -n "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store myappseckey 2>&1
 
     - name: List keys (SECRETS_TEST)
       if: steps.check_secret.outputs.secret_exists == 'true'
@@ -65,7 +65,7 @@ jobs:
         retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve ActionKey 2>&1)
         echo "Full output: $retrieved"
         actual_key=$(echo "$retrieved" | grep -v "Debug:" | tr -d '\n')
-        expected_key="0123456789abcdef0123456789abcdef"
+        expected_key="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
         echo "Expected key: $expected_key"
         echo "Actual key  : $actual_key"
         if [ "$actual_key" != "$expected_key" ]; then
@@ -77,7 +77,7 @@ jobs:
         retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve myappseckey 2>&1)
         echo "Full output: $retrieved"
         actual_key=$(echo "$retrieved" | grep -v "Debug:" | tr -d '\n')
-        expected_key="0123456789appsec0123456789abcdef"
+        expected_key="0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef"
         echo "Expected key: $expected_key"
         echo "Actual key  : $actual_key"
         if [ "$actual_key" != "$expected_key" ]; then
@@ -101,11 +101,11 @@ jobs:
 
     - name: Store ActionKey
       run: |
-        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store ActionKey
+        echo -n "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store ActionKey
 
     - name: Store myappseckey
       run: |
-        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store myappseckey
+        echo -n "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store myappseckey
 
     - name: List keys
       run: |
@@ -119,7 +119,7 @@ jobs:
     - name: Retrieve and verify ActionKey
       run: |
         retrieved=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve ActionKey)
-        if [ "$retrieved" != "0123456789abcdef0123456789abcdef" ]; then
+        if [ "$retrieved" != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
           exit 1
         fi
@@ -127,7 +127,7 @@ jobs:
     - name: Retrieve and verify myappseckey
       run: |
         retrieved=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve myappseckey)
-        if [ "$retrieved" != "0123456789appsec0123456789abcdef" ]; then
+        if [ "$retrieved" != "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
           exit 1
         fi
@@ -135,7 +135,7 @@ jobs:
     - name: Retrieve myappseckey to file
       run: |
         ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve myappseckey -pipe > actiontest.key
-        if [ "$(cat actiontest.key)" != "0123456789appsec0123456789abcdef" ]; then
+        if [ "$(cat actiontest.key)" != "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
           echo "Error: actiontest.key does not contain correct myappseckey value"
           exit 1
         fi
