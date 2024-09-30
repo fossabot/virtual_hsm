@@ -54,19 +54,22 @@ void generate_master_key() {
     printf("WARNING: The master key has been stored in %s. This is insecure and should only be used for educational purposes.\n", master_key_file);
 }
 
-void load_master_key() {
-    FILE *file = fopen(master_key_file, "rb");
-    if (file == NULL) {
-        printf("Master key file not found. Please enter the master key in hex format: ");
-        char hex_key[KEY_SIZE * 2 + 1];
-        if (fgets(hex_key, sizeof(hex_key), stdin) == NULL) {
-            fprintf(stderr, "Error reading master key.\n");
+void load_master_key(const char *provided_key) {
+    if (provided_key) {
+        if (strlen(provided_key) != KEY_SIZE * 2) {
+            fprintf(stderr, "Error: Invalid master key length. Expected %d characters.\n", KEY_SIZE * 2);
             exit(1);
         }
-        
         for (int i = 0; i < KEY_SIZE; i++) {
-            sscanf(hex_key + 2*i, "%2hhx", &master_key[i]);
+            sscanf(provided_key + 2*i, "%2hhx", &master_key[i]);
         }
+        return;
+    }
+
+    FILE *file = fopen(master_key_file, "rb");
+    if (file == NULL) {
+        fprintf(stderr, "Error: Master key file not found and no key provided.\n");
+        exit(1);
     } else {
         if (fread(master_key, 1, KEY_SIZE, file) != KEY_SIZE) {
             fprintf(stderr, "Error: Invalid master key file.\n");
@@ -201,7 +204,7 @@ void list_keys() {
 
 void print_usage() {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] <command> [options]\n");
+    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] [-master_key <hex_key>] <command> [options]\n");
     fprintf(stderr, "Commands:\n");
     fprintf(stderr, "  -store <key_name>\n");
     fprintf(stderr, "  -retrieve <key_name> [-pipe]\n");
@@ -211,6 +214,7 @@ void print_usage() {
 
 int main(int argc, char *argv[]) {
     int i;
+    const char *provided_master_key = NULL;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-keystore") == 0 && i + 1 < argc) {
             strncpy(keystore_file, argv[++i], MAX_FILENAME - 1);
@@ -218,6 +222,8 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "-master") == 0 && i + 1 < argc) {
             strncpy(master_key_file, argv[++i], MAX_FILENAME - 1);
             master_key_file[MAX_FILENAME - 1] = '\0';
+        } else if (strcmp(argv[i], "-master_key") == 0 && i + 1 < argc) {
+            provided_master_key = argv[++i];
         } else {
             break;
         }
@@ -233,7 +239,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    load_master_key();
+    load_master_key(provided_master_key);
     load_keystore();
 
     if (strcmp(argv[i], "-store") == 0) {
