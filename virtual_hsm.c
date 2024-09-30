@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define MAX_KEYS 100
-#define KEY_SIZE 32
+#define KEY_SIZE 32 
 #define IV_SIZE 16
 #define MAX_FILENAME 256
 #define MAX_NAME_LENGTH 49
@@ -57,9 +57,9 @@ void generate_master_key() {
 }
 
 void load_master_key(const char *provided_key) {
-    fprintf(stderr, "Debug: Entering load_master_key function\n");
+    DEBUG_PRINT("Entering load_master_key function");
     if (provided_key) {
-        fprintf(stderr, "Debug: Master key provided via command line\n");
+        DEBUG_PRINT("Master key provided via command line");
         if (strlen(provided_key) != KEY_SIZE * 2) {
             fprintf(stderr, "Error: Invalid master key length. Expected %d characters, got %zu.\n", KEY_SIZE * 2, strlen(provided_key));
             exit(1);
@@ -67,7 +67,7 @@ void load_master_key(const char *provided_key) {
         for (int i = 0; i < KEY_SIZE; i++) {
             sscanf(provided_key + 2*i, "%2hhx", &master_key[i]);
         }
-        fprintf(stderr, "Debug: Master key loaded successfully\n");
+        DEBUG_PRINT("Master key loaded successfully");
         return;
     }
 
@@ -200,11 +200,8 @@ void retrieve_key(const char *name, int pipe_mode) {
                 exit(1);
             }
             DEBUG_PRINT("Key '%s' decrypted successfully", name);
-            fprintf(stderr, "Debug: Retrieved key for '%s' (hex): ", name);
-            for (int j = 0; j < KEY_SIZE; j++) {
-                fprintf(stderr, "%02x", decrypted_key[j]);
-            }
-            fprintf(stderr, "\n");
+            DEBUG_PRINT("Retrieved key for '%s' (hex): %02x%02x%02x%02x...", name, 
+                        decrypted_key[0], decrypted_key[1], decrypted_key[2], decrypted_key[3]);
             fwrite(decrypted_key, 1, KEY_SIZE, stdout);
             if (pipe_mode) {
                 printf("\n");
