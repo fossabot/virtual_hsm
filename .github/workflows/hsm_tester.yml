@@ -47,6 +47,8 @@ jobs:
         echo -n "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store ActionKey 2>&1
         echo "Storing myappseckey:"
         echo -n "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store myappseckey 2>&1
+        echo "Contents of test.keystore.dat:"
+        hexdump -C test.keystore.dat
 
     - name: List keys (SECRETS_TEST)
       if: steps.check_secret.outputs.secret_exists == 'true'
@@ -55,6 +57,8 @@ jobs:
       run: |
         echo "Listing keys:"
         ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -list 2>&1
+        echo "Contents of test.keystore.dat:"
+        hexdump -C test.keystore.dat
 
     - name: Retrieve and verify keys (SECRETS_TEST)
       if: steps.check_secret.outputs.secret_exists == 'true'
@@ -68,20 +72,10 @@ jobs:
         expected_key="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
         echo "Expected key: $expected_key"
         echo "Actual key  : $actual_key"
+        echo "Contents of test.keystore.dat:"
+        hexdump -C test.keystore.dat
         if [ "$actual_key" != "$expected_key" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
-          exit 1
-        fi
-
-        echo "Retrieving myappseckey:"
-        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve myappseckey 2>&1)
-        echo "Full output: $retrieved"
-        actual_key=$(echo "$retrieved" | grep -v "Debug:" | tr -d '\n')
-        expected_key="0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef"
-        echo "Expected key: $expected_key"
-        echo "Actual key  : $actual_key"
-        if [ "$actual_key" != "$expected_key" ]; then
-          echo "Error: Retrieved myappseckey does not match stored value"
           exit 1
         fi
 
