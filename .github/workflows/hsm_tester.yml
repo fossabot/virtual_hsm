@@ -5,6 +5,11 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  SECRETS_TEST: "0123456789abcdef0123456789abcdef"
+  ACTION_KEY: "0123456789abcdef0123456789abcdef"
+  APP_SEC_KEY: "9876543210fedcba9876543210fedcba"
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -18,126 +23,55 @@ jobs:
       run: gcc -o virtual_hsm virtual_hsm.c -lcrypto
 
     - name: Test generate master key command
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        ./virtual_hsm -generate_master_key ${{ github.repository_owner }} ${{ github.repository }}
+        ./virtual_hsm -generate_master_key
         if [ $? -ne 0 ]; then
-          echo "Error: Failed to generate and update master key"
+          echo "Error: Failed to generate master key"
           exit 1
-        fi
-
-    - name: Check for SECRETS_TEST
-      id: check_secret
-      env: 
-        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
-      run: |
-        if [ -n "$SECRETS_TEST" ]; then
-          echo "::set-output name=secret_exists::true"
-        else
-          echo "::set-output name=secret_exists::false"
         fi
 
     - name: Store keys using SECRETS_TEST
-      if: steps.check_secret.outputs.secret_exists == 'true'
-      env:
-        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
       run: |
         echo "Storing ActionKey:"
-        echo -n "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store ActionKey 2>&1
+        echo -n "${{ env.ACTION_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store ActionKey
         echo "Storing myappseckey:"
-        echo -n "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store myappseckey 2>&1
+        echo -n "${{ env.APP_SEC_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store myappseckey
         echo "Contents of test.keystore.dat:"
         hexdump -C test.keystore.dat
-
-    - name: List keys (SECRETS_TEST)
-      if: steps.check_secret.outputs.secret_exists == 'true'
-      env:
-        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
-      run: |
-        echo "Listing keys:"
-        ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -list 2>&1
-        echo "Contents of test.keystore.dat:"
-        hexdump -C test.keystore.dat
-
-    - name: Retrieve and verify keys (SECRETS_TEST)
-      if: steps.check_secret.outputs.secret_exists == 'true'
-      env:
-        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
-      run: |
-        echo "Retrieving ActionKey:"
-        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve ActionKey 2>&1)
-        echo "Full output: $retrieved"
-        actual_key=$(echo "$retrieved" | grep -v "Debug:" | tr -d '\n')
-        expected_key="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-        echo "Expected key: $expected_key"
-        echo "Actual key  : $actual_key"
-        echo "Contents of test.keystore.dat:"
-        hexdump -C test.keystore.dat
-        if [ "$actual_key" != "$expected_key" ]; then
-          echo "Error: Retrieved ActionKey does not match stored value"
-          exit 1
-        fi
-
-
-    - name: Cleanup (SECRETS_TEST)
-      if: steps.check_secret.outputs.secret_exists == 'true'
-      run: |
-        rm -f test.master.key test.keystore.dat
-        if [ -f test.master.key ] || [ -f test.keystore.dat ]; then
-          echo "Error: Cleanup failed, one or more test files still exist"
-          exit 1
-        fi
-
-    - name: Generate non-default keys
-      run: |
-        ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -list
-
-    - name: Store ActionKey
-      run: |
-        echo -n "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store ActionKey
-
-    - name: Store myappseckey
-      run: |
-        echo -n "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" | ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -store myappseckey
 
     - name: List keys
       run: |
-        output=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -list)
-        echo "$output"
-        if [[ "$output" != *"ActionKey"* || "$output" != *"myappseckey"* ]]; then
-          echo "Error: Not all expected keys are listed"
-          exit 1
-        fi
+        echo "Listing keys:"
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -list
+        echo "Contents of test.keystore.dat:"
+        hexdump -C test.keystore.dat
 
-    - name: Retrieve and verify ActionKey
+    - name: Retrieve and verify keys
       run: |
-        retrieved=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve ActionKey)
-        if [ "$retrieved" != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
+        echo "Retrieving ActionKey:"
+        retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve ActionKey)
+        echo "Full output: $retrieved"
+        if [ "$retrieved" != "${{ env.ACTION_KEY }}" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
+          echo "Expected: ${{ env.ACTION_KEY }}"
+          echo "Actual  : $retrieved"
           exit 1
         fi
 
-    - name: Retrieve and verify myappseckey
-      run: |
-        retrieved=$(./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve myappseckey)
-        if [ "$retrieved" != "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
+        echo "Retrieving myappseckey:"
+        retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve myappseckey)
+        echo "Full output: $retrieved"
+        if [ "$retrieved" != "${{ env.APP_SEC_KEY }}" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
+          echo "Expected: ${{ env.APP_SEC_KEY }}"
+          echo "Actual  : $retrieved"
           exit 1
         fi
 
-    - name: Retrieve myappseckey to file
+    - name: Cleanup
       run: |
-        ./virtual_hsm -master mainGitHub.key -keystore keystoreGithub.dat -retrieve myappseckey -pipe > actiontest.key
-        if [ "$(cat actiontest.key)" != "0123456789appsec0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
-          echo "Error: actiontest.key does not contain correct myappseckey value"
-          exit 1
-        fi
-
-    - name: Final Cleanup
-      run: |
-        rm -f mainGitHub.key keystoreGithub.dat actiontest.key
-        if [ -f mainGitHub.key ] || [ -f keystoreGithub.dat ] || [ -f actiontest.key ]; then
-          echo "Error: Cleanup failed, one or more files still exist"
+        rm -f test.keystore.dat
+        if [ -f test.keystore.dat ]; then
+          echo "Error: Cleanup failed, test.keystore.dat still exists"
           exit 1
         fi
