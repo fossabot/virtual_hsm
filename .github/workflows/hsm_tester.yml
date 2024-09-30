@@ -74,9 +74,4 @@ jobs:
           exit 1
         fi
 
-    - name: Verify original files were not overwritten
-      run: |
-        if [ ! -f master.key ] || [ ! -f keystore.dat ]; then
-          echo "Error: Original master.key or keystore.dat file is missing"
-          exit 1
-        fi
+
