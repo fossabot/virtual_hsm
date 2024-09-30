@@ -1,5 +1,4 @@
 name: Virtual HSM Test
-
 on:
   push:
     branches: [ main ]
@@ -9,17 +8,94 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
-
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libssl-dev
-
+        sudo apt-get install -y libssl-dev libcurl4-openssl-dev libsodium-dev
     - name: Compile program
-      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto
+      run: gcc -o virtual_hsm virtual_hsm.c cJSON.c -lcurl -lssl -lcrypto -lsodium
+
+    - name: Test generate master key command
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        ./virtual_hsm -generate_and_update_master_key ${{ github.repository_owner }} ${{ github.repository }}
+        if [ $? -ne 0 ]; then
+          echo "Error: Failed to generate and update master key"
+          exit 1
+        fi
+
+    - name: Check for SECRETS_TEST
+      id: check_secret
+      env: 
+        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
+      run: |
+        if [ -n "$SECRETS_TEST" ]; then
+          echo "::set-output name=secret_exists::true"
+        else
+          echo "::set-output name=secret_exists::false"
+        fi
+
+    - name: Remove test files if SECRETS_TEST exists
+      if: steps.check_secret.outputs.secret_exists == 'true'
+      run: |
+        rm -f test.master.key test.keystore.dat
+        if [ -f test.master.key ] || [ -f test.keystore.dat ]; then
+          echo "Error: Cleanup failed, one or more test files still exist"
+          exit 1
+        fi
+
+    - name: Create new keystore with SECRETS_TEST
+      if: steps.check_secret.outputs.secret_exists == 'true'
+      env:
+        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
+      run: |
+        echo -n "$SECRETS_TEST" > test.master.key
+        if [ "$SECRETS_TEST" != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
+          echo "Error: SECRETS_TEST value is not as expected"
+          exit 1
+        fi
+
+    - name: Store keys using SECRETS_TEST
+      if: steps.check_secret.outputs.secret_exists == 'true'
+      run: |
+        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -master test.master.key -keystore test.keystore.dat -store ActionKey
+        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -master test.master.key -keystore test.keystore.dat -store myappseckey
+
+    - name: List keys (SECRETS_TEST)
+      if: steps.check_secret.outputs.secret_exists == 'true'
+      run: |
+        output=$(./virtual_hsm -master test.master.key -keystore test.keystore.dat -list)
+        echo "$output"
+        if [[ "$output" != *"ActionKey"* || "$output" != *"myappseckey"* ]]; then
+          echo "Error: Not all expected keys are listed"
+          exit 1
+        fi
+
+    - name: Retrieve and verify keys (SECRETS_TEST)
+      if: steps.check_secret.outputs.secret_exists == 'true'
+      run: |
+        retrieved=$(./virtual_hsm -master test.master.key -keystore test.keystore.dat -retrieve ActionKey)
+        if [ "$retrieved" != "0123456789abcdef0123456789abcdef" ]; then
+          echo "Error: Retrieved ActionKey does not match stored value"
+          exit 1
+        fi
+        retrieved=$(./virtual_hsm -master test.master.key -keystore test.keystore.dat -retrieve myappseckey)
+        if [ "$retrieved" != "0123456789appsec0123456789abcdef" ]; then
+          echo "Error: Retrieved myappseckey does not match stored value"
+          exit 1
+        fi
+
+    - name: Cleanup (SECRETS_TEST)
+      if: steps.check_secret.outputs.secret_exists == 'true'
+      run: |
+        rm -f test.master.key test.keystore.dat
+        if [ -f test.master.key ] || [ -f test.keystore.dat ]; then
+          echo "Error: Cleanup failed, one or more test files still exist"
+          exit 1
+        fi
 
     - name: Generate non-default keys
       run: |
@@ -66,12 +142,10 @@ jobs:
           exit 1
         fi
 
-    - name: Cleanup
+    - name: Final Cleanup
       run: |
         rm -f mainGitHub.key keystoreGithub.dat actiontest.key
         if [ -f mainGitHub.key ] || [ -f keystoreGithub.dat ] || [ -f actiontest.key ]; then
           echo "Error: Cleanup failed, one or more files still exist"
           exit 1
         fi
-
-
