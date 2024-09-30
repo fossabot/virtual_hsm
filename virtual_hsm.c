@@ -30,6 +30,19 @@ void handle_errors() {
     abort();
 }
 
+void generate_master_key() {
+    unsigned char new_master_key[KEY_SIZE];
+    if (RAND_bytes(new_master_key, KEY_SIZE) != 1) {
+        handle_errors();
+    }
+
+    printf("Generated Master Key (hex format for GitHub Secret):\n");
+    for (int i = 0; i < KEY_SIZE; i++) {
+        printf("%02x", new_master_key[i]);
+    }
+    printf("\n");
+}
+
 void load_master_key() {
     FILE *file = fopen(master_key_file, "rb");
     if (file == NULL) {
@@ -174,6 +187,7 @@ void print_usage() {
     fprintf(stderr, "  -store <key_name>\n");
     fprintf(stderr, "  -retrieve <key_name> [-pipe]\n");
     fprintf(stderr, "  -list\n");
+    fprintf(stderr, "  -generate_master_key\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -198,6 +212,11 @@ int main(int argc, char *argv[]) {
     if (i >= argc) {
         print_usage();
         return 1;
+    }
+
+    if (strcmp(argv[i], "-generate_master_key") == 0) {
+        generate_master_key();
+        return 0;
     }
 
     if (!master_key_set) {
