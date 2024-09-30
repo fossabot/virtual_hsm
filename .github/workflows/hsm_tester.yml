@@ -1,0 +1,80 @@
+name: Virtual HSM Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev
+
+    - name: Compile program
+      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto
+
+    - name: Generate non-default keys
+      run: |
+        ./virtual_hsm -genkey mainGitHub.key
+        ./virtual_hsm -init keystoreGithub.dat
+
+    - name: Store keys
+      run: |
+        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -store ActionKey
+        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -store myappseckey
+
+    - name: List keys
+      run: |
+        output=$(./virtual_hsm -list)
+        echo "$output"
+        if [[ "$output" != *"ActionKey"* || "$output" != *"myappseckey"* ]]; then
+          echo "Error: Not all expected keys are listed"
+          exit 1
+        fi
+
+    - name: Retrieve and verify ActionKey
+      run: |
+        retrieved=$(echo -n | ./virtual_hsm -retrieve ActionKey)
+        if [ "$retrieved" != "0123456789abcdef0123456789abcdef" ]; then
+          echo "Error: Retrieved ActionKey does not match stored value"
+          exit 1
+        fi
+
+    - name: Retrieve and verify myappseckey
+      run: |
+        retrieved=$(echo -n | ./virtual_hsm -retrieve myappseckey)
+        if [ "$retrieved" != "0123456789appsec0123456789abcdef" ]; then
+          echo "Error: Retrieved myappseckey does not match stored value"
+          exit 1
+        fi
+
+    - name: Retrieve myappseckey to file
+      run: |
+        echo -n | ./virtual_hsm -retrieve myappseckey > actiontest.key
+        if [ "$(cat actiontest.key)" != "0123456789appsec0123456789abcdef" ]; then
+          echo "Error: actiontest.key does not contain correct myappseckey value"
+          exit 1
+        fi
+
+    - name: Cleanup
+      run: |
+        rm -f mainGitHub.key keystoreGithub.dat actiontest.key
+        if [ -f mainGitHub.key ] || [ -f keystoreGithub.dat ] || [ -f actiontest.key ]; then
+          echo "Error: Cleanup failed, one or more files still exist"
+          exit 1
+        fi
+
+    - name: Verify original files were not overwritten
+      run: |
+        if [ ! -f master.key ] || [ ! -f keystore.dat ]; then
+          echo "Error: Original master.key or keystore.dat file is missing"
+          exit 1
+        fi
