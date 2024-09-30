@@ -10,7 +10,8 @@ This HSM is exceptionally simple, and is not meant to be a true HSM, but simply 
 * The EVP (Envelope) interface is for encryption and decryption, which is the recommended approach in OpenSSL 3.0.
 * Error handling uses OpenSSL's error reporting functions.
 * AES-256 encryption, unique IV for each key
-* Persistent storage due to keystore.dat and master.key split-paired files. 
+* Persistent storage due to keystore.dat and master.key split-paired files.
+* Full support for GitHub Secrets and Actions Workflow passing as Hexadecimal via command line
 
 ## Operation Notes:
 
