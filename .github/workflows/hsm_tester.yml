@@ -38,36 +38,20 @@ jobs:
           echo "::set-output name=secret_exists::false"
         fi
 
-    - name: Remove test files if SECRETS_TEST exists
-      if: steps.check_secret.outputs.secret_exists == 'true'
-      run: |
-        rm -f test.master.key test.keystore.dat
-        if [ -f test.master.key ] || [ -f test.keystore.dat ]; then
-          echo "Error: Cleanup failed, one or more test files still exist"
-          exit 1
-        fi
-
-    - name: Create new keystore with SECRETS_TEST
+    - name: Store keys using SECRETS_TEST
       if: steps.check_secret.outputs.secret_exists == 'true'
       env:
         SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
       run: |
-        echo -n "$SECRETS_TEST" > test.master.key
-        if [ "$SECRETS_TEST" != "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" ]; then
-          echo "Error: SECRETS_TEST value is not as expected"
-          exit 1
-        fi
-
-    - name: Store keys using SECRETS_TEST
-      if: steps.check_secret.outputs.secret_exists == 'true'
-      run: |
-        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -master test.master.key -keystore test.keystore.dat -store ActionKey
-        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -master test.master.key -keystore test.keystore.dat -store myappseckey
+        echo -n "0123456789abcdef0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store ActionKey
+        echo -n "0123456789appsec0123456789abcdef" | ./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -store myappseckey
 
     - name: List keys (SECRETS_TEST)
       if: steps.check_secret.outputs.secret_exists == 'true'
+      env:
+        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
       run: |
-        output=$(./virtual_hsm -master test.master.key -keystore test.keystore.dat -list)
+        output=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -list)
         echo "$output"
         if [[ "$output" != *"ActionKey"* || "$output" != *"myappseckey"* ]]; then
           echo "Error: Not all expected keys are listed"
@@ -76,13 +60,15 @@ jobs:
 
     - name: Retrieve and verify keys (SECRETS_TEST)
       if: steps.check_secret.outputs.secret_exists == 'true'
+      env:
+        SECRETS_TEST: ${{ secrets.SECRETS_TEST }}
       run: |
-        retrieved=$(./virtual_hsm -master test.master.key -keystore test.keystore.dat -retrieve ActionKey)
+        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve ActionKey)
         if [ "$retrieved" != "0123456789abcdef0123456789abcdef" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
           exit 1
         fi
-        retrieved=$(./virtual_hsm -master test.master.key -keystore test.keystore.dat -retrieve myappseckey)
+        retrieved=$(./virtual_hsm -master_key $SECRETS_TEST -keystore test.keystore.dat -retrieve myappseckey)
         if [ "$retrieved" != "0123456789appsec0123456789abcdef" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
           exit 1
