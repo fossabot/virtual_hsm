@@ -13,9 +13,9 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libssl-dev libcurl4-openssl-dev libsodium-dev
+        sudo apt-get install -y libssl-dev
     - name: Compile program
-      run: gcc -o virtual_hsm virtual_hsm.c cJSON.c -lcurl -lssl -lcrypto -lsodium
+      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto
 
     - name: Test generate master key command
       env:
