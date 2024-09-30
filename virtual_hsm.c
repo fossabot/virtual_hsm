@@ -9,8 +9,7 @@
 #define MAX_KEYS 100
 #define KEY_SIZE 32
 #define IV_SIZE 16
-#define KEYSTORE_FILE "keystore.dat"
-#define MASTER_KEY_FILE "master.key"
+#define MAX_FILENAME 256
 
 typedef struct {
     char name[50];
@@ -23,18 +22,21 @@ KeyEntry keystore[MAX_KEYS];
 int key_count = 0;
 unsigned char master_key[KEY_SIZE];
 
+char keystore_file[MAX_FILENAME] = "keystore.dat";
+char master_key_file[MAX_FILENAME] = "master.key";
+
 void handle_errors() {
     ERR_print_errors_fp(stderr);
     abort();
 }
 
 void load_master_key() {
-    FILE *file = fopen(MASTER_KEY_FILE, "rb");
+    FILE *file = fopen(master_key_file, "rb");
     if (file == NULL) {
         if (RAND_bytes(master_key, KEY_SIZE) != 1) {
             handle_errors();
         }
-        file = fopen(MASTER_KEY_FILE, "wb");
+        file = fopen(master_key_file, "wb");
         fwrite(master_key, 1, KEY_SIZE, file);
     } else {
         fread(master_key, 1, KEY_SIZE, file);
@@ -43,14 +45,14 @@ void load_master_key() {
 }
 
 void save_keystore() {
-    FILE *file = fopen(KEYSTORE_FILE, "wb");
+    FILE *file = fopen(keystore_file, "wb");
     fwrite(&key_count, sizeof(int), 1, file);
     fwrite(keystore, sizeof(KeyEntry), key_count, file);
     fclose(file);
 }
 
 void load_keystore() {
-    FILE *file = fopen(KEYSTORE_FILE, "rb");
+    FILE *file = fopen(keystore_file, "rb");
     if (file != NULL) {
         fread(&key_count, sizeof(int), 1, file);
         fread(keystore, sizeof(KeyEntry), key_count, file);
@@ -155,13 +157,26 @@ void list_keys() {
 
 void print_usage() {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  ./virtual_hsm -store <key_name>\n");
-    fprintf(stderr, "  ./virtual_hsm -retrieve <key_name> [-pipe]\n");
-    fprintf(stderr, "  ./virtual_hsm -list\n");
+    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] <command> [options]\n");
+    fprintf(stderr, "Commands:\n");
+    fprintf(stderr, "  -store <key_name>\n");
+    fprintf(stderr, "  -retrieve <key_name> [-pipe]\n");
+    fprintf(stderr, "  -list\n");
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
+    int i;
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-keystore") == 0 && i + 1 < argc) {
+            strncpy(keystore_file, argv[++i], MAX_FILENAME - 1);
+        } else if (strcmp(argv[i], "-master") == 0 && i + 1 < argc) {
+            strncpy(master_key_file, argv[++i], MAX_FILENAME - 1);
+        } else {
+            break;
+        }
+    }
+
+    if (i >= argc) {
         print_usage();
         return 1;
     }
@@ -169,8 +184,8 @@ int main(int argc, char *argv[]) {
     load_master_key();
     load_keystore();
 
-    if (strcmp(argv[1], "-store") == 0) {
-        if (argc != 3) {
+    if (strcmp(argv[i], "-store") == 0) {
+        if (i + 1 >= argc) {
             print_usage();
             return 1;
         }
@@ -179,15 +194,15 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Error: Invalid key input. Please provide 32 bytes.\n");
             return 1;
         }
-        store_key(argv[2], key);
-    } else if (strcmp(argv[1], "-retrieve") == 0) {
-        if (argc != 3 && argc != 4) {
+        store_key(argv[i + 1], key);
+    } else if (strcmp(argv[i], "-retrieve") == 0) {
+        if (i + 1 >= argc) {
             print_usage();
             return 1;
         }
-        int pipe_mode = (argc == 4 && strcmp(argv[3], "-pipe") == 0);
-        retrieve_key(argv[2], pipe_mode);
-    } else if (strcmp(argv[1], "-list") == 0) {
+        int pipe_mode = (i + 2 < argc && strcmp(argv[i + 2], "-pipe") == 0);
+        retrieve_key(argv[i + 1], pipe_mode);
+    } else if (strcmp(argv[i], "-list") == 0) {
         list_keys();
     } else {
         print_usage();
