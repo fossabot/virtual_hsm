@@ -194,18 +194,19 @@ void retrieve_key(const char *name, int pipe_mode) {
         if (strcmp(keystore[i].name, name) == 0) {
             DEBUG_PRINT("Key '%s' found in keystore", name);
             unsigned char decrypted_key[KEY_SIZE];
-            int decrypted_len = decrypt_key(keystore[i].encrypted_key, keystore[i].encrypted_len, decrypted_key, keystore[i].iv);
+            int decrypted_len = decrypt_key(keystore[i].encrypted_key, keystore[i].encrypted_len, 
+                                          decrypted_key, keystore[i].iv);
+            
             if (decrypted_len != KEY_SIZE) {
-                fprintf(stderr, "Error: Decrypted key length mismatch. Expected %d, got %d\n", KEY_SIZE, decrypted_len);
+                fprintf(stderr, "Error: Decrypted key length mismatch\n");
                 exit(1);
             }
-            DEBUG_PRINT("Key '%s' decrypted successfully", name);
-            DEBUG_PRINT("Retrieved key for '%s' (hex): %02x%02x%02x%02x...", name, 
-                        decrypted_key[0], decrypted_key[1], decrypted_key[2], decrypted_key[3]);
-            fwrite(decrypted_key, 1, KEY_SIZE, stdout);
-            if (pipe_mode) {
-                printf("\n");
+            
+            // Print the key in hex format instead of binary
+            for (int j = 0; j < KEY_SIZE; j++) {
+                printf("%02x", decrypted_key[j]);
             }
+            printf("\n");
             return;
         }
     }
