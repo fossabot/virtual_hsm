@@ -30,6 +30,21 @@ unsigned char master_key[KEY_SIZE];
 char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
 
+// Utility Functions
+int hex_to_int(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length) {
+    DEBUG_PRINT("Converting hex string to bytes: %s", hex);
+    for (size_t i = 0; i < length; i++) {
+        bytes[i] = (hex_to_int(hex[i*2]) << 4) | hex_to_int(hex[i*2 + 1]);
+    }
+}
+
 void handle_errors() {
     unsigned long err = ERR_get_error();
     char err_msg[256];
@@ -66,13 +81,12 @@ void load_master_key(const char *provided_key) {
     DEBUG_PRINT("Entering load_master_key function");
     if (provided_key) {
         DEBUG_PRINT("Master key provided via command line");
-        if (strlen(provided_key) != KEY_SIZE) {
-            fprintf(stderr, "Error: Invalid master key length. Expected %d characters, got %zu.\n", KEY_SIZE, strlen(provided_key));
+        if (strlen(provided_key) != KEY_SIZE * 2) {
+            fprintf(stderr, "Error: Invalid master key length. Expected %d hex characters, got %zu.\n", 
+                    KEY_SIZE * 2, strlen(provided_key));
             exit(1);
         }
-        for (int i = 0; i < KEY_SIZE; i++) {
-            sscanf(provided_key + 2*i, "%2hhx", &master_key[i]);
-        }
+        hex_to_bytes(provided_key, master_key, KEY_SIZE);
         DEBUG_PRINT("Master key loaded successfully");
         return;
     }
@@ -250,6 +264,7 @@ void retrieve_key(const char *name, int pipe_mode) {
                 printf("%02x", decrypted_key[j]);
             }
             printf("\n");
+            DEBUG_PRINT("Key retrieved successfully");
             return;
         }
     }
@@ -309,12 +324,19 @@ int main(int argc, char *argv[]) {
             print_usage();
             return 1;
         }
-        unsigned char key[KEY_SIZE];
-        if (fread(key, 1, KEY_SIZE, stdin) != KEY_SIZE) {
-            fprintf(stderr, "Error: Invalid key input. Please provide 32 bytes.\n");
+        // Read hex string from stdin
+        char hex_key[KEY_SIZE * 2 + 1];
+        if (fread(hex_key, 1, KEY_SIZE * 2, stdin) != KEY_SIZE * 2) {
+            fprintf(stderr, "Error: Invalid key input. Please provide %d hex characters.\n", KEY_SIZE * 2);
             return 1;
         }
-        store_key(argv[i + 1], key);
+        hex_key[KEY_SIZE * 2] = '\0';
+        
+        // Convert hex to binary
+        unsigned char binary_key[KEY_SIZE];
+        hex_to_bytes(hex_key, binary_key, KEY_SIZE);
+        
+        store_key(argv[i + 1], binary_key);
     } else if (strcmp(argv[i], "-retrieve") == 0) {
         if (i + 1 >= argc) {
             print_usage();
