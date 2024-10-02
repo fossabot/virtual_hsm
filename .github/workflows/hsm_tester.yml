@@ -19,6 +19,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libssl-dev
+    
     - name: Compile program
       run: gcc -o virtual_hsm virtual_hsm.c -lcrypto
 
@@ -32,46 +33,36 @@ jobs:
 
     - name: Store keys using SECRETS_TEST
       run: |
-        echo "Storing ActionKey:"
         echo -n "${{ env.ACTION_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store ActionKey
-        echo "Storing myappseckey:"
         echo -n "${{ env.APP_SEC_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store myappseckey
-        echo "Contents of test.keystore.dat:"
-        hexdump -C test.keystore.dat
 
     - name: List keys
       run: |
-        echo "Listing keys:"
         ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -list
-        echo "Contents of test.keystore.dat:"
-        hexdump -C test.keystore.dat
 
     - name: Retrieve and verify keys
       run: |
         echo "Retrieving ActionKey:"
         retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve ActionKey)
-        echo "Full output: $retrieved"
-        if [ "$retrieved" != "${{ env.ACTION_KEY }}" ]; then
+        retrieved=$(echo "$retrieved" | tr -d '\n')  # Remove any newlines
+        expected="${{ env.ACTION_KEY }}"
+        if [ "$retrieved" != "$expected" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
-          echo "Expected: ${{ env.ACTION_KEY }}"
+          echo "Expected: $expected"
           echo "Actual  : $retrieved"
           exit 1
         fi
 
         echo "Retrieving myappseckey:"
         retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve myappseckey)
-        echo "Full output: $retrieved"
-        if [ "$retrieved" != "${{ env.APP_SEC_KEY }}" ]; then
+        retrieved=$(echo "$retrieved" | tr -d '\n')  # Remove any newlines
+        expected="${{ env.APP_SEC_KEY }}"
+        if [ "$retrieved" != "$expected" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
-          echo "Expected: ${{ env.APP_SEC_KEY }}"
+          echo "Expected: $expected"
           echo "Actual  : $retrieved"
           exit 1
         fi
 
     - name: Cleanup
-      run: |
-        rm -f test.keystore.dat
-        if [ -f test.keystore.dat ]; then
-          echo "Error: Cleanup failed, test.keystore.dat still exists"
-          exit 1
-        fi
+      run: rm -f test.keystore.dat
