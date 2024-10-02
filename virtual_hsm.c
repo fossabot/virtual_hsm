@@ -29,6 +29,10 @@ char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
 
 void handle_errors() {
+    unsigned long err = ERR_get_error();
+    char err_msg[256];
+    ERR_error_string_n(err, err_msg, sizeof(err_msg));
+    fprintf(stderr, "Debug: OpenSSL Error: %s\n", err_msg);
     ERR_print_errors_fp(stderr);
     exit(1);
 }
@@ -137,22 +141,37 @@ int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, int *
 
 int decrypt_key(const unsigned char *ciphertext, int ciphertext_len, unsigned char *plaintext, const unsigned char *iv) {
     EVP_CIPHER_CTX *ctx;
-
-    if (!(ctx = EVP_CIPHER_CTX_new())) handle_errors();
-
-    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, master_key, iv))
-        handle_errors();
-
     int len;
-    if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
-        handle_errors();
-    int plaintext_len = len;
+    int plaintext_len;
 
-    if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len))
+    DEBUG_PRINT("Entering decrypt_key function");
+    DEBUG_PRINT("Ciphertext length: %d", ciphertext_len);
+    DEBUG_PRINT("IV (first 4 bytes): %02x%02x%02x%02x", iv[0], iv[1], iv[2], iv[3]);
+    
+    if (!(ctx = EVP_CIPHER_CTX_new())) {
+        DEBUG_PRINT("Failed to create cipher context");
         handle_errors();
+    }
+
+    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, master_key, iv)) {
+        DEBUG_PRINT("Failed to initialize decryption");
+        handle_errors();
+    }
+
+    if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+        DEBUG_PRINT("Failed during decryption update");
+        handle_errors();
+    }
+    plaintext_len = len;
+
+    if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
+        DEBUG_PRINT("Failed during decryption finalization");
+        handle_errors();
+    }
     plaintext_len += len;
 
     EVP_CIPHER_CTX_free(ctx);
+    DEBUG_PRINT("Decryption completed successfully. Plaintext length: %d", plaintext_len);
     return plaintext_len;
 }
 
@@ -178,13 +197,16 @@ void store_key(const char *name, const unsigned char *key) {
     KeyEntry *entry = &keystore[key_count++];
     strncpy(entry->name, name, MAX_NAME_LENGTH);
     entry->name[MAX_NAME_LENGTH] = '\0';
+
+    DEBUG_PRINT("Starting encryption process");
     if (!encrypt_key(key, entry->encrypted_key, &entry->encrypted_len, entry->iv)) {
         fprintf(stderr, "Error: Failed to encrypt key.\n");
         exit(1);
     }
-    DEBUG_PRINT("Key '%s' encrypted successfully", name);
+    DEBUG_PRINT("Encryption successful. Encrypted length: %d", entry->encrypted_len);
+
     save_keystore();
-    DEBUG_PRINT("Keystore saved successfully");
+    DEBUG_PRINT("Key stored successfully in keystore");
     printf("Key stored successfully.\n");
 }
 
@@ -193,20 +215,33 @@ void retrieve_key(const char *name, int pipe_mode) {
     for (int i = 0; i < key_count; i++) {
         if (strcmp(keystore[i].name, name) == 0) {
             DEBUG_PRINT("Key '%s' found in keystore", name);
+            DEBUG_PRINT("Encrypted length: %d", keystore[i].encrypted_len);
+            
             unsigned char decrypted_key[KEY_SIZE];
-            int decrypted_len = decrypt_key(keystore[i].encrypted_key, keystore[i].encrypted_len, 
-                                          decrypted_key, keystore[i].iv);
+            memset(decrypted_key, 0, KEY_SIZE); // Initialize buffer
+            
+            DEBUG_PRINT("Starting decryption process");
+            int decrypted_len = decrypt_key(keystore[i].encrypted_key, 
+                                          keystore[i].encrypted_len,
+                                          decrypted_key, 
+                                          keystore[i].iv);
+            
+            DEBUG_PRINT("Decryption complete. Length: %d", decrypted_len);
             
             if (decrypted_len != KEY_SIZE) {
-                fprintf(stderr, "Error: Decrypted key length mismatch\n");
+                fprintf(stderr, "Error: Decrypted key length mismatch. Expected %d, got %d\n", 
+                        KEY_SIZE, decrypted_len);
                 exit(1);
             }
             
-            // Print the key in hex format instead of binary
+            // Print the key in hex format
+            DEBUG_PRINT("Converting to hex format");
             for (int j = 0; j < KEY_SIZE; j++) {
                 printf("%02x", decrypted_key[j]);
             }
             printf("\n");
+            
+            DEBUG_PRINT("Key retrieval successful");
             return;
         }
     }
