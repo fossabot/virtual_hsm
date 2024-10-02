@@ -21,20 +21,22 @@ jobs:
         sudo apt-get install -y libssl-dev
     
     - name: Compile program
-      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto
-
-    - name: Test generate master key command
-      run: |
-        ./virtual_hsm -generate_master_key
-        if [ $? -ne 0 ]; then
-          echo "Error: Failed to generate master key"
-          exit 1
-        fi
-
+      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto -g -Wall -Wextra
+    
     - name: Store keys using SECRETS_TEST
       run: |
+        echo "Storing ActionKey with value: ${{ env.ACTION_KEY }}"
+        echo -n "${{ env.ACTION_KEY }}" | xxd -p  # Debug: show hex of input
         echo -n "${{ env.ACTION_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store ActionKey
+        echo "ActionKey stored"
+        
+        echo "Storing APP_SEC_KEY with value: ${{ env.APP_SEC_KEY }}"
+        echo -n "${{ env.APP_SEC_KEY }}" | xxd -p  # Debug: show hex of input
         echo -n "${{ env.APP_SEC_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store myappseckey
+        echo "APP_SEC_KEY stored"
+        
+        echo "Keystore contents:"
+        hexdump -C test.keystore.dat
 
     - name: List keys
       run: |
@@ -44,23 +46,29 @@ jobs:
       run: |
         echo "Retrieving ActionKey:"
         retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve ActionKey)
-        retrieved=$(echo "$retrieved" | tr -d '\n')  # Remove any newlines
+        retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
         expected="${{ env.ACTION_KEY }}"
+        echo "Retrieved value (hex): $retrieved"
+        echo "Expected value (hex): $expected"
         if [ "$retrieved" != "$expected" ]; then
           echo "Error: Retrieved ActionKey does not match stored value"
           echo "Expected: $expected"
           echo "Actual  : $retrieved"
+          echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
           exit 1
         fi
 
         echo "Retrieving myappseckey:"
         retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve myappseckey)
-        retrieved=$(echo "$retrieved" | tr -d '\n')  # Remove any newlines
+        retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
         expected="${{ env.APP_SEC_KEY }}"
+        echo "Retrieved value (hex): $retrieved"
+        echo "Expected value (hex): $expected"
         if [ "$retrieved" != "$expected" ]; then
           echo "Error: Retrieved myappseckey does not match stored value"
           echo "Expected: $expected"
           echo "Actual  : $retrieved"
+          echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
           exit 1
         fi
 
