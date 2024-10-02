@@ -10,7 +10,8 @@
 
 #define MAX_KEYS 100
 #define KEY_SIZE 32 
-#define IV_SIZE 16
+#define IV_SIZE 12  // Using 96-bit IV for GCM as recommended
+#define TAG_SIZE 16 // GCM tag size
 #define MAX_FILENAME 256
 #define MAX_NAME_LENGTH 49
 
@@ -18,6 +19,7 @@ typedef struct {
     char name[MAX_NAME_LENGTH + 1];
     unsigned char encrypted_key[KEY_SIZE + EVP_MAX_BLOCK_LENGTH];
     unsigned char iv[IV_SIZE];
+    unsigned char tag[TAG_SIZE];  // Added GCM authentication tag
     int encrypted_len;
 } KeyEntry;
 
@@ -114,14 +116,16 @@ void load_keystore() {
     }
 }
 
-int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, int *ciphertext_len, unsigned char *iv) {
+int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, 
+                int *ciphertext_len, unsigned char *iv, unsigned char *tag) {
     EVP_CIPHER_CTX *ctx;
 
     if (RAND_bytes(iv, IV_SIZE) != 1) {
         handle_errors();
     }
 
-    if (!(ctx = EVP_CIPHER_CTX_new())) handle_errors();
+    if (!(ctx = EVP_CIPHER_CTX_new())) 
+        handle_errors();
 
     if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, master_key, iv))
         handle_errors();
@@ -129,49 +133,66 @@ int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, int *
     int len;
     if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, KEY_SIZE))
         handle_errors();
+    
     *ciphertext_len = len;
 
     if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
         handle_errors();
+    
     *ciphertext_len += len;
+
+    // Get the tag
+    if (1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_SIZE, tag))
+        handle_errors();
 
     EVP_CIPHER_CTX_free(ctx);
     return 1;
 }
 
-int decrypt_key(const unsigned char *ciphertext, int ciphertext_len, unsigned char *plaintext, const unsigned char *iv) {
+int decrypt_key(const unsigned char *ciphertext, int ciphertext_len,
+                unsigned char *plaintext, const unsigned char *iv,
+                const unsigned char *tag) {
     EVP_CIPHER_CTX *ctx;
     int len;
     int plaintext_len;
+    int ret;
 
     DEBUG_PRINT("Entering decrypt_key function");
     DEBUG_PRINT("Ciphertext length: %d", ciphertext_len);
     DEBUG_PRINT("IV (first 4 bytes): %02x%02x%02x%02x", iv[0], iv[1], iv[2], iv[3]);
-    
+
     if (!(ctx = EVP_CIPHER_CTX_new())) {
         DEBUG_PRINT("Failed to create cipher context");
         handle_errors();
     }
 
-    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, master_key, iv)) {
+    if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, master_key, iv)) {
         DEBUG_PRINT("Failed to initialize decryption");
         handle_errors();
     }
 
-    if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+    if (!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
         DEBUG_PRINT("Failed during decryption update");
         handle_errors();
     }
     plaintext_len = len;
 
-    if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
-        DEBUG_PRINT("Failed during decryption finalization");
+    // Set expected tag value
+    if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_SIZE, (void*)tag)) {
+        DEBUG_PRINT("Failed to set authentication tag");
+        handle_errors();
+    }
+
+    // Finalize decryption and verify tag
+    ret = EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+    if (ret <= 0) {
+        DEBUG_PRINT("Authentication failed or decrypt error");
         handle_errors();
     }
     plaintext_len += len;
 
     EVP_CIPHER_CTX_free(ctx);
-    DEBUG_PRINT("Decryption completed successfully. Plaintext length: %d", plaintext_len);
+    DEBUG_PRINT("Decryption completed successfully");
     return plaintext_len;
 }
 
@@ -187,27 +208,19 @@ void store_key(const char *name, const unsigned char *key) {
         exit(1);
     }
 
-    for (int i = 0; i < key_count; i++) {
-        if (strcmp(keystore[i].name, name) == 0) {
-            fprintf(stderr, "Error: Key with this name already exists.\n");
-            exit(1);
-        }
-    }
-
     KeyEntry *entry = &keystore[key_count++];
     strncpy(entry->name, name, MAX_NAME_LENGTH);
     entry->name[MAX_NAME_LENGTH] = '\0';
 
     DEBUG_PRINT("Starting encryption process");
-    if (!encrypt_key(key, entry->encrypted_key, &entry->encrypted_len, entry->iv)) {
+    if (!encrypt_key(key, entry->encrypted_key, &entry->encrypted_len, 
+                    entry->iv, entry->tag)) {
         fprintf(stderr, "Error: Failed to encrypt key.\n");
         exit(1);
     }
-    DEBUG_PRINT("Encryption successful. Encrypted length: %d", entry->encrypted_len);
-
+    
     save_keystore();
-    DEBUG_PRINT("Key stored successfully in keystore");
-    printf("Key stored successfully.\n");
+    DEBUG_PRINT("Key stored successfully");
 }
 
 void retrieve_key(const char *name, int pipe_mode) {
@@ -218,30 +231,25 @@ void retrieve_key(const char *name, int pipe_mode) {
             DEBUG_PRINT("Encrypted length: %d", keystore[i].encrypted_len);
             
             unsigned char decrypted_key[KEY_SIZE];
-            memset(decrypted_key, 0, KEY_SIZE); // Initialize buffer
+            memset(decrypted_key, 0, KEY_SIZE);
             
             DEBUG_PRINT("Starting decryption process");
             int decrypted_len = decrypt_key(keystore[i].encrypted_key, 
                                           keystore[i].encrypted_len,
                                           decrypted_key, 
-                                          keystore[i].iv);
-            
-            DEBUG_PRINT("Decryption complete. Length: %d", decrypted_len);
+                                          keystore[i].iv,
+                                          keystore[i].tag);
             
             if (decrypted_len != KEY_SIZE) {
-                fprintf(stderr, "Error: Decrypted key length mismatch. Expected %d, got %d\n", 
-                        KEY_SIZE, decrypted_len);
+                fprintf(stderr, "Error: Decrypted key length mismatch\n");
                 exit(1);
             }
             
-            // Print the key in hex format
-            DEBUG_PRINT("Converting to hex format");
+            // Output in hex format
             for (int j = 0; j < KEY_SIZE; j++) {
                 printf("%02x", decrypted_key[j]);
             }
             printf("\n");
-            
-            DEBUG_PRINT("Key retrieval successful");
             return;
         }
     }
