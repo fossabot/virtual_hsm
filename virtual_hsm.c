@@ -237,7 +237,7 @@ void store_key(const char *name, const unsigned char *key) {
     DEBUG_PRINT("Key stored successfully");
 }
 
-void retrieve_key(const char *name, int pipe_mode) {
+void retrieve_key(const char *name) {
     DEBUG_PRINT("Entering retrieve_key function for key '%s'", name);
     for (int i = 0; i < key_count; i++) {
         if (strcmp(keystore[i].name, name) == 0) {
@@ -283,7 +283,7 @@ void print_usage() {
     fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] [-master_key <hex_key>] <command> [options]\n");
     fprintf(stderr, "Commands:\n");
     fprintf(stderr, "  -store <key_name>\n");
-    fprintf(stderr, "  -retrieve <key_name> [-pipe]\n");
+    fprintf(stderr, "  -retrieve <key_name>\n");
     fprintf(stderr, "  -list\n");
     fprintf(stderr, "  -generate_master_key\n");
 }
@@ -342,8 +342,8 @@ int main(int argc, char *argv[]) {
             print_usage();
             return 1;
         }
-        int pipe_mode = (i + 2 < argc && strcmp(argv[i + 2], "-pipe") == 0);
-        retrieve_key(argv[i + 1], pipe_mode);
+
+        retrieve_key(argv[i + 1]);
     } else if (strcmp(argv[i], "-list") == 0) {
         list_keys();
     } else {
