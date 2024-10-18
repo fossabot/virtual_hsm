@@ -84,7 +84,7 @@ jobs:
         xxd signature.bin
 
         echo "Verifying signature..."
-        echo -n "Test data to sign" | cat - signature.bin | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
+        (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
 
         echo "Exporting public key..."
         ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key.pem
@@ -96,7 +96,7 @@ jobs:
         cat public_key.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
 
         echo "Verifying signature with imported public key..."
-        echo -n "Test data to sign" | cat - signature.bin | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
+        (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
 
     - name: Cleanup
       run: rm -f test.keystore.dat signature.bin public_key.pem
