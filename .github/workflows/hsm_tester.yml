@@ -19,10 +19,10 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libssl-dev
-    
+
     - name: Compile program
-      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto -g -Wall -Wextra
-    
+      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+
     - name: Store keys using SECRETS_TEST
       run: |
         echo "Storing ActionKey with value: ${{ env.ACTION_KEY }}"
@@ -72,5 +72,25 @@ jobs:
           exit 1
         fi
 
+    - name: Test digital signature functionality
+      run: |
+        echo "Generating key pair..."
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -generate_key_pair test_key_pair
+
+        echo "Signing data..."
+        echo -n "Test data to sign" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -sign test_key_pair > signature.bin
+
+        echo "Verifying signature..."
+        echo -n "Test data to sign" | cat - signature.bin | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
+
+        echo "Exporting public key..."
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key.pem
+
+        echo "Importing public key..."
+        cat public_key.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
+
+        echo "Verifying signature with imported public key..."
+        echo -n "Test data to sign" | cat - signature.bin | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
+
     - name: Cleanup
-      run: rm -f test.keystore.dat
+      run: rm -f test.keystore.dat signature.bin public_key.pem
