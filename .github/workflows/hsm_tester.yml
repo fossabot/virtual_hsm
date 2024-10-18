@@ -138,8 +138,45 @@ jobs:
           x86_64-w64-mingw32-gcc -o virtual_hsm_windows_x86_64.exe virtual_hsm.c -I/usr/include -L/usr/lib/x86_64-linux-gnu -lcrypto -lssl -g -Wall -Wextra -static
         fi
 
-    - name: Upload compiled binary
+    - name: Check for changes and move binary
+      run: |
+        if [ "${{ matrix.target }}" = "linux-x86_64" ]; then
+          NEW_FILE=virtual_hsm_linux_x86_64
+        elif [ "${{ matrix.target }}" = "linux-arm64" ]; then
+          NEW_FILE=virtual_hsm_linux_arm64
+        elif [ "${{ matrix.target }}" = "windows-x86_64" ]; then
+          NEW_FILE=virtual_hsm_windows_x86_64.exe
+        fi
+        TARGET_FILE=virtual_hsm_${{ matrix.target }}
+        if [ "${{ matrix.target }}" = "windows-x86_64" ]; then
+          TARGET_FILE="${TARGET_FILE}.exe"
+        fi
+        if [ -f "$TARGET_FILE" ]; then
+          if cmp -s "$NEW_FILE" "$TARGET_FILE"; then
+            echo "No changes detected in $TARGET_FILE"
+            rm "$NEW_FILE"
+          else
+            echo "Changes detected in $TARGET_FILE"
+            mv "$NEW_FILE" "$TARGET_FILE"
+            echo "BINARY_CHANGED=true" >> $GITHUB_ENV
+          fi
+        else
+          echo "New binary created: $TARGET_FILE"
+          mv "$NEW_FILE" "$TARGET_FILE"
+          echo "BINARY_CHANGED=true" >> $GITHUB_ENV
+        fi
+
+    - name: Commit and push binary if changed
+      if: env.BINARY_CHANGED == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add virtual_hsm_${{ matrix.target }}*
+        git commit -m "Update compiled binary for ${{ matrix.target }}"
+        git push
+
+    - name: Upload compiled binary as artifact
       uses: actions/upload-artifact@v4
       with:
         name: virtual_hsm_${{ matrix.target }}
-        path: virtual_hsm_*
+        path: virtual_hsm_${{ matrix.target }}*
