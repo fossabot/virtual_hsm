@@ -17,10 +17,11 @@
 
 typedef struct {
     char name[MAX_NAME_LENGTH + 1];
-    unsigned char encrypted_key[KEY_SIZE + EVP_MAX_BLOCK_LENGTH];
+    unsigned char key_data[KEY_SIZE];
     unsigned char iv[IV_SIZE];
-    unsigned char tag[TAG_SIZE];  // GCM authentication tag
+    unsigned char tag[TAG_SIZE];
     int encrypted_len;
+    int is_public_key;
 } KeyEntry;
 
 KeyEntry keystore[MAX_KEYS];
@@ -213,7 +214,7 @@ int decrypt_key(const unsigned char *ciphertext, int ciphertext_len,
     return plaintext_len;
 }
 
-void store_key(const char *name, const unsigned char *key) {
+void store_key(const char *name, const unsigned char *key, int is_public_key) {
     DEBUG_PRINT("Entering store_key function for key '%s'", name);
     if (key_count >= MAX_KEYS) {
         fprintf(stderr, "Error: Keystore is full.\n");
@@ -228,16 +229,44 @@ void store_key(const char *name, const unsigned char *key) {
     KeyEntry *entry = &keystore[key_count++];
     strncpy(entry->name, name, MAX_NAME_LENGTH);
     entry->name[MAX_NAME_LENGTH] = '\0';
+    entry->is_public_key = is_public_key;
 
-    DEBUG_PRINT("Starting encryption process");
-    if (!encrypt_key(key, entry->encrypted_key, &entry->encrypted_len, 
-                    entry->iv, entry->tag)) {
-        fprintf(stderr, "Error: Failed to encrypt key.\n");
-        exit(1);
+    if (is_public_key) {
+        memcpy(entry->key_data, key, KEY_SIZE);
+        entry->encrypted_len = KEY_SIZE;
+    } else {
+        DEBUG_PRINT("Starting encryption process");
+        if (!encrypt_key(key, entry->key_data, &entry->encrypted_len, 
+                        entry->iv, entry->tag)) {
+            fprintf(stderr, "Error: Failed to encrypt key.\n");
+            exit(1);
+        }
     }
     
     save_keystore();
     DEBUG_PRINT("Key stored successfully");
+}
+
+int import_public_key(const char *name, const char *pem_key) {
+    BIO *bio = BIO_new_mem_buf(pem_key, -1);
+    EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+    
+    if (!pkey) {
+        return 0;
+    }
+    
+    unsigned char key_data[KEY_SIZE];
+    size_t key_len = sizeof(key_data);
+    
+    if (EVP_PKEY_get_raw_public_key(pkey, key_data, &key_len) <= 0 || key_len != KEY_SIZE) {
+        EVP_PKEY_free(pkey);
+        return 0;
+    }
+    
+    store_key(name, key_data, 1);  // 1 indicates it's a public key
+    EVP_PKEY_free(pkey);
+    return 1;
 }
 
 void retrieve_key(const char *name) {
