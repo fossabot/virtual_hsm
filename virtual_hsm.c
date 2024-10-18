@@ -46,6 +46,7 @@ void store_key(const char *name, const unsigned char *key, int is_public_key);
 void retrieve_key(const char *name);
 void list_keys(void);
 void print_usage(void);
+void store_public_key(const char *name, const unsigned char *key, size_t key_len);
 
 // Include the digital_signature.h file
 #include "digital_signature.h"
@@ -263,7 +264,33 @@ void store_key(const char *name, const unsigned char *key, int is_public_key) {
     DEBUG_PRINT("Key stored successfully");
 }
 
+void store_public_key(const char *name, const unsigned char *key, size_t key_len) {
+    DEBUG_PRINT("Entering store_public_key function for key '%s'", name);
+    if (key_count >= MAX_KEYS) {
+        fprintf(stderr, "Error: Keystore is full.\n");
+        exit(1);
+    }
 
+    if (strlen(name) > MAX_NAME_LENGTH) {
+        fprintf(stderr, "Error: Key name is too long.\n");
+        exit(1);
+    }
+
+    if (key_len != KEY_SIZE) {
+        fprintf(stderr, "Error: Invalid key length.\n");
+        exit(1);
+    }
+
+    KeyEntry *entry = &keystore[key_count++];
+    strncpy(entry->name, name, MAX_NAME_LENGTH);
+    entry->name[MAX_NAME_LENGTH] = '\0';
+    entry->is_public_key = 1;
+    memcpy(entry->key_data, key, KEY_SIZE);
+    entry->encrypted_len = KEY_SIZE;
+
+    save_keystore();
+    DEBUG_PRINT("Public key stored successfully");
+}
 
 void retrieve_key(const char *name) {
     DEBUG_PRINT("Entering retrieve_key function for key '%s'", name);
