@@ -31,7 +31,23 @@ unsigned char master_key[KEY_SIZE];
 char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
 
-// Our sub-programs
+// Function prototypes
+void handle_errors(void);
+void generate_master_key(void);
+void load_master_key(const char *provided_key);
+void save_keystore(void);
+void load_keystore(void);
+int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, 
+                int *ciphertext_len, unsigned char *iv, unsigned char *tag);
+int decrypt_key(const unsigned char *ciphertext, int ciphertext_len,
+                unsigned char *plaintext, const unsigned char *iv,
+                const unsigned char *tag);
+void store_key(const char *name, const unsigned char *key, int is_public_key);
+void retrieve_key(const char *name);
+void list_keys(void);
+void print_usage(void);
+
+// Include the digital_signature.h file
 #include "digital_signature.h"
 
 // Utility Functions
@@ -247,27 +263,7 @@ void store_key(const char *name, const unsigned char *key, int is_public_key) {
     DEBUG_PRINT("Key stored successfully");
 }
 
-int import_public_key(const char *name, const char *pem_key) {
-    BIO *bio = BIO_new_mem_buf(pem_key, -1);
-    EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
-    BIO_free(bio);
-    
-    if (!pkey) {
-        return 0;
-    }
-    
-    unsigned char key_data[KEY_SIZE];
-    size_t key_len = sizeof(key_data);
-    
-    if (EVP_PKEY_get_raw_public_key(pkey, key_data, &key_len) <= 0 || key_len != KEY_SIZE) {
-        EVP_PKEY_free(pkey);
-        return 0;
-    }
-    
-    store_key(name, key_data, 1);  // 1 indicates it's a public key
-    EVP_PKEY_free(pkey);
-    return 1;
-}
+
 
 void retrieve_key(const char *name) {
     DEBUG_PRINT("Entering retrieve_key function for key '%s'", name);
@@ -280,7 +276,7 @@ void retrieve_key(const char *name) {
             memset(decrypted_key, 0, KEY_SIZE);
             
             DEBUG_PRINT("Starting decryption process");
-            int decrypted_len = decrypt_key(keystore[i].encrypted_key, 
+            int decrypted_len = decrypt_key(keystore[i].key_data,  // Changed from encrypted_key to key_data
                                           keystore[i].encrypted_len,
                                           decrypted_key, 
                                           keystore[i].iv,
@@ -373,7 +369,7 @@ int main(int argc, char *argv[]) {
         unsigned char binary_key[KEY_SIZE];
         hex_to_bytes(hex_key, binary_key, KEY_SIZE);
         
-        store_key(argv[i + 1], binary_key);
+        store_key(argv[i + 1], binary_key, 0);  // 0 indicates it's not a public key
     } else if (strcmp(argv[i], "-retrieve") == 0) {
         if (i + 1 >= argc) {
             print_usage();
