@@ -115,20 +115,32 @@ int sign_data(const char *key_name, const unsigned char *data, size_t data_len, 
 int verify_signature(const char *key_name, const unsigned char *data, size_t data_len, const unsigned char *signature, size_t sig_len) {
     KeyPair *pair = find_key_pair(key_name);
     if (!pair) {
+        DEBUG_PRINT("Key pair not found: %s", key_name);
         return 0;
     }
     
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {
+        DEBUG_PRINT("Failed to create MD context");
         return 0;
     }
     
     if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, pair->pkey) <= 0) {
+        DEBUG_PRINT("Failed to initialize verification");
         EVP_MD_CTX_free(md_ctx);
         return 0;
     }
     
     int ret = EVP_DigestVerify(md_ctx, signature, sig_len, data, data_len);
+    
+    if (ret == 1) {
+        DEBUG_PRINT("Signature verified successfully");
+    } else if (ret == 0) {
+        DEBUG_PRINT("Signature verification failed - invalid signature");
+    } else {
+        DEBUG_PRINT("Signature verification failed - error occurred");
+        ERR_print_errors_fp(stderr);
+    }
     
     EVP_MD_CTX_free(md_ctx);
     return (ret == 1);
