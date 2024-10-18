@@ -98,12 +98,12 @@ jobs:
         echo "Verifying signature with imported public key..."
         (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
 
-    - name: Cleanup
-      run:
-        - rm -f test.keystore.dat signature.bin public_key_test.pem
-        - export SECRETS_TEST=
-        - export ACTION_KEY=
-        - export APP_SEC_KEY=
+- name: Cleanup
+  run:
+    - rm -f test.keystore.dat signature.bin public_key_test.pem
+    - export SECRETS_TEST=
+    - export ACTION_KEY=
+    - export APP_SEC_KEY=
     
   compile-versions:
     needs: build-and-test  # This ensures the job runs only if 'build-and-test' succeeds
