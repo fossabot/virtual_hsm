@@ -1,3 +1,6 @@
+// Alon Hillel-Tuch
+// 2024
+
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "Debug: " fmt "\n", ##__VA_ARGS__)
 
 #include <stdio.h>
