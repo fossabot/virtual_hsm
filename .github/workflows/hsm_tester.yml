@@ -107,6 +107,7 @@ jobs:
         export APP_SEC_KEY=""
 
 
+
   cross-compile:
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -122,25 +123,19 @@ jobs:
         sudo apt-get install -y build-essential
         if [ "${{ matrix.target }}" = "linux-arm64" ]; then
           sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
-          sudo apt-get install -y libssl-dev:arm64
         elif [ "${{ matrix.target }}" = "windows-x86_64" ]; then
           sudo apt-get install -y mingw-w64
         fi
         sudo apt-get install -y libssl-dev
-
-    - name: Set up for ARM64 cross-compilation
-      if: matrix.target == 'linux-arm64'
-      run: |
-        sudo ln -s /usr/include/aarch64-linux-gnu/openssl /usr/include/openssl
 
     - name: Compile for ${{ matrix.target }}
       run: |
         if [ "${{ matrix.target }}" = "linux-x86_64" ]; then
           gcc -o virtual_hsm_linux_x86_64 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
         elif [ "${{ matrix.target }}" = "linux-arm64" ]; then
-          aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm64 virtual_hsm.c -I/usr/include/aarch64-linux-gnu -L/usr/lib/aarch64-linux-gnu -lcrypto -lssl -g -Wall -Wextra
+          aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm64 virtual_hsm.c -I/usr/include -L/usr/lib/x86_64-linux-gnu -lcrypto -lssl -g -Wall -Wextra
         elif [ "${{ matrix.target }}" = "windows-x86_64" ]; then
-          x86_64-w64-mingw32-gcc -o virtual_hsm_windows_x86_64.exe virtual_hsm.c -I/usr/x86_64-w64-mingw32/include -L/usr/x86_64-w64-mingw32/lib -lcrypto -lssl -g -Wall -Wextra -static
+          x86_64-w64-mingw32-gcc -o virtual_hsm_windows_x86_64.exe virtual_hsm.c -I/usr/include -L/usr/lib/x86_64-linux-gnu -lcrypto -lssl -g -Wall -Wextra -static
         fi
 
     - name: Upload compiled binary
