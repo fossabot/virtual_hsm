@@ -10,7 +10,7 @@
 
 #define MAX_KEYS 100
 #define KEY_SIZE 32 
-#define IV_SIZE 12  // Using 96-bit IV for GCM as recommended
+#define IV_SIZE 12  
 #define TAG_SIZE 16 // GCM tag size
 #define MAX_FILENAME 256
 #define MAX_NAME_LENGTH 49
@@ -19,7 +19,7 @@ typedef struct {
     char name[MAX_NAME_LENGTH + 1];
     unsigned char encrypted_key[KEY_SIZE + EVP_MAX_BLOCK_LENGTH];
     unsigned char iv[IV_SIZE];
-    unsigned char tag[TAG_SIZE];  // Added GCM authentication tag
+    unsigned char tag[TAG_SIZE];  // GCM authentication tag
     int encrypted_len;
 } KeyEntry;
 
