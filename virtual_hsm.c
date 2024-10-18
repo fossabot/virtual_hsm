@@ -8,9 +8,6 @@
 #include <openssl/err.h>
 #include <unistd.h>
 
-// Our sub-programs
-#include "digital_signature.h"
-
 #define MAX_KEYS 100
 #define KEY_SIZE 32 
 #define IV_SIZE 12  
@@ -32,6 +29,9 @@ unsigned char master_key[KEY_SIZE];
 
 char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
+
+// Our sub-programs
+#include "digital_signature.h"
 
 // Utility Functions
 int hex_to_int(char c) {
