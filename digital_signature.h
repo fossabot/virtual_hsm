@@ -88,6 +88,16 @@ int sign_data(const char *key_name, const unsigned char *data, size_t data_len, 
         return 0;
     }
     
+    unsigned char public_key_raw[KEY_SIZE];
+    size_t public_key_len = KEY_SIZE;
+    if (EVP_PKEY_get_raw_public_key(pair->pkey, public_key_raw, &public_key_len) > 0) {
+        DEBUG_PRINT("Public key used for verification:");
+        for (size_t i = 0; i < public_key_len; i++) {
+            fprintf(stderr, "%02x", public_key_raw[i]);
+        }
+        fprintf(stderr, "\n");
+    }
+    
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {
         DEBUG_PRINT("Failed to create MD context");
