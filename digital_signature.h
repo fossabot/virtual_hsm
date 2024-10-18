@@ -84,24 +84,29 @@ int generate_key_pair(const char *name) {
 int sign_data(const char *key_name, const unsigned char *data, size_t data_len, unsigned char *signature, size_t *sig_len) {
     KeyPair *pair = find_key_pair(key_name);
     if (!pair) {
+        DEBUG_PRINT("Key pair not found: %s", key_name);
         return 0;
     }
     
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {
+        DEBUG_PRINT("Failed to create MD context");
         return 0;
     }
     
     if (EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, pair->pkey) <= 0) {
+        DEBUG_PRINT("Failed to initialize signing");
         EVP_MD_CTX_free(md_ctx);
         return 0;
     }
     
     if (EVP_DigestSign(md_ctx, signature, sig_len, data, data_len) <= 0) {
+        DEBUG_PRINT("Failed to sign data");
         EVP_MD_CTX_free(md_ctx);
         return 0;
     }
     
+    DEBUG_PRINT("Data signed successfully, signature length: %zu", *sig_len);
     EVP_MD_CTX_free(md_ctx);
     return 1;
 }
