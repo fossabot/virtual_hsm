@@ -87,16 +87,55 @@ jobs:
         (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
 
         echo "Exporting public key..."
-        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key.pem
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key_test.pem
         
         echo "Public key contents:"
-        cat public_key.pem
+        cat public_key_test.pem
 
         echo "Importing public key..."
-        cat public_key.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
+        cat public_key_test.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
 
         echo "Verifying signature with imported public key..."
         (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
 
     - name: Cleanup
-      run: rm -f test.keystore.dat signature.bin public_key.pem
+      run: rm -f test.keystore.dat signature.bin public_key_test.pem
+
+  compile-versions:
+    needs: build-and-test  # This ensures the job runs only if 'build-and-test' succeeds
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cross-compilation tools
+      run: sudo apt-get install -y gcc-multilib g++-multilib gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+    - name: Compile for Windows i86/x64
+      run: gcc -o virtual_hsm_win_i86 virtual_hsm.c -lcrypto -lssl -m64 -g -Wall -Wextra
+
+    - name: Compile for Linux i86/x64
+      run: gcc -o virtual_hsm_linux_i86 virtual_hsm.c -lcrypto -lssl -m64 -g -Wall -Wextra
+
+    - name: Compile for Linux ARM
+      run: aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+
+    - name: Compile for MacOS ARM
+      run: |
+        sudo apt-get install -y llvm clang
+        clang -target arm64-apple-macos11 -o virtual_hsm_mac_arm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+
+    - name: Compile for MacOS i86/x64
+      run: |
+        sudo apt-get install -y llvm clang
+        clang -target x86_64-apple-macos10.12 -o virtual_hsm_mac_i86 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+
+    - name: Upload compiled binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: compiled_virtual_hsm
+        path: |
+          virtual_hsm_win_i86
+          virtual_hsm_linux_i86
+          virtual_hsm_linux_arm
+          virtual_hsm_mac_arm
+          virtual_hsm_mac_i86
