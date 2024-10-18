@@ -1,6 +1,6 @@
 # Virtual Hardware Security Management (HSM) Program
 
-A virtualized hardware security management tool for Graduate Level Cyber Security students to leverage in various assignments for the NYU Application Security course.
+A virtualized hardware security management tool.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -18,7 +18,7 @@ A virtualized hardware security management tool for Graduate Level Cyber Securit
 
 ## Overview
 
-This HSM is exceptionally simple and is not meant to be a true HSM, but simply a virtualized expression of one that can be addressed via terminal commands. 
+This HSM is exceptionally simple and is not meant to be a true HSM, but simply a virtualized expression of one that can be addressed via terminal commands. The purpose of the program is to assist those in learning how to interact with HSMs and their functionality.
 
 **Warning: Do not use in production environments**
 
