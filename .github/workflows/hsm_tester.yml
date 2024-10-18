@@ -99,16 +99,21 @@ jobs:
         (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
 
     - name: Cleanup
-      run: rm -f test.keystore.dat signature.bin public_key_test.pem
-
+      run:
+        - rm -f test.keystore.dat signature.bin public_key_test.pem
+        - export SECRETS_TEST=
+        - export ACTION_KEY=
+        - export APP_SEC_KEY=
+    
   compile-versions:
     needs: build-and-test  # This ensures the job runs only if 'build-and-test' succeeds
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install cross-compilation tools
-      run: sudo apt-get install -y gcc-multilib g++-multilib gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+    # Step 1: Install tools and compile for Windows i86/x64 and Linux i86/x64
+    - name: Install x86/x64 dependencies
+      run: sudo apt-get install -y gcc-multilib g++-multilib
 
     - name: Compile for Windows i86/x64
       run: gcc -o virtual_hsm_win_i86 virtual_hsm.c -lcrypto -lssl -m64 -g -Wall -Wextra
@@ -116,18 +121,22 @@ jobs:
     - name: Compile for Linux i86/x64
       run: gcc -o virtual_hsm_linux_i86 virtual_hsm.c -lcrypto -lssl -m64 -g -Wall -Wextra
 
+    # Step 2: Install tools and compile for Linux ARM
+    - name: Install ARM dependencies
+      run: sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
     - name: Compile for Linux ARM
       run: aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
 
+    # Step 3: Compile for MacOS ARM and MacOS i86/x64
+    - name: Install LLVM and Clang
+      run: sudo apt-get install -y llvm clang
+
     - name: Compile for MacOS ARM
-      run: |
-        sudo apt-get install -y llvm clang
-        clang -target arm64-apple-macos11 -o virtual_hsm_mac_arm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+      run: clang -target arm64-apple-macos11 -o virtual_hsm_mac_arm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
 
     - name: Compile for MacOS i86/x64
-      run: |
-        sudo apt-get install -y llvm clang
-        clang -target x86_64-apple-macos10.12 -o virtual_hsm_mac_i86 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+      run: clang -target x86_64-apple-macos10.12 -o virtual_hsm_mac_i86 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
 
     - name: Upload compiled binaries
       uses: actions/upload-artifact@v3
@@ -139,3 +148,4 @@ jobs:
           virtual_hsm_linux_arm
           virtual_hsm_mac_arm
           virtual_hsm_mac_i86
+
