@@ -380,34 +380,34 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Signing failed\n");
             return 1;
         }
-    } else if (strcmp(argv[i], "-verify") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-        unsigned char signature[MAX_SIGNATURE_SIZE];
-        unsigned char data[1024];
-        size_t data_len = 0;
-        size_t sig_len = 0;
+} else if (strcmp(argv[i], "-verify") == 0) {
+    if (i + 1 >= argc) {
+        print_usage();
+        return 1;
+    }
+    unsigned char signature[MAX_SIGNATURE_SIZE];
+    unsigned char data[1024];
+    size_t data_len = 0;
+    size_t sig_len = 0;
 
-        // Read data first
-        data_len = fread(data, 1, sizeof(data), stdin);
-        DEBUG_PRINT("Read data length: %zu", data_len);
+    // Read data first (17 bytes)
+    data_len = fread(data, 1, 17, stdin);
+    DEBUG_PRINT("Read data length: %zu", data_len);
 
-        // Then read signature
-        sig_len = fread(signature, 1, sizeof(signature), stdin);
-        DEBUG_PRINT("Read signature length: %zu", sig_len);
-        
-        DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
-        DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
-        
-        if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
-            printf("Signature verified\n");
-        } else {
-            fprintf(stderr, "Signature verification failed\n");
-            return 1;
-        }
-    } else if (strcmp(argv[i], "-export_public_key") == 0) {
+    // Then read signature (64 bytes)
+    sig_len = fread(signature, 1, 64, stdin);
+    DEBUG_PRINT("Read signature length: %zu", sig_len);
+    
+    DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
+    DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
+    
+    if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
+        printf("Signature verified\n");
+    } else {
+        fprintf(stderr, "Signature verification failed\n");
+        return 1;
+    }
+} else if (strcmp(argv[i], "-export_public_key") == 0) {
         if (i + 1 >= argc) {
             print_usage();
             return 1;
