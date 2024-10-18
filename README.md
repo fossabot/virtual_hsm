@@ -24,7 +24,7 @@ This HSM is exceptionally simple and is not meant to be a true HSM, but simply a
 
 ## Design Notes
 
-- Uses the EVP (Envelope) interface for encryption and decryption, as recommended in OpenSSL 3.0
+- Uses the EVP (Envelope) interface for encryption and decryption, with Ed25519 signing
 - Implements error handling using OpenSSL's error reporting functions
 - Employs AES-256-GCM encryption with a unique IV for each key
 - Provides persistent storage through `keystore.dat` and `master.key` split-paired files
