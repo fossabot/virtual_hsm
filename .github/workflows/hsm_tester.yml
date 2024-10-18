@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [linux-x86_64, linux-arm64, windows-x86_64, macos-x86_64]
+        target: [linux-x86_64, linux-arm64, windows-x86_64]
     steps:
     - uses: actions/checkout@v4
 
@@ -120,7 +120,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential
         if [ "${{ matrix.target }}" = "linux-arm64" ]; then
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
         elif [ "${{ matrix.target }}" = "windows-x86_64" ]; then
           sudo apt-get install -y mingw-w64
         fi
@@ -131,15 +131,13 @@ jobs:
         if [ "${{ matrix.target }}" = "linux-x86_64" ]; then
           gcc -o virtual_hsm_linux_x86_64 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
         elif [ "${{ matrix.target }}" = "linux-arm64" ]; then
-          aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm64 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+          aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm64 virtual_hsm.c -I/usr/aarch64-linux-gnu/include -L/usr/aarch64-linux-gnu/lib -lcrypto -lssl -g -Wall -Wextra
         elif [ "${{ matrix.target }}" = "windows-x86_64" ]; then
-          x86_64-w64-mingw32-gcc -o virtual_hsm_windows_x86_64.exe virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
-        elif [ "${{ matrix.target }}" = "macos-x86_64" ]; then
-          gcc -o virtual_hsm_macos_x86_64 virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra -target x86_64-apple-darwin
+          x86_64-w64-mingw32-gcc -o virtual_hsm_windows_x86_64.exe virtual_hsm.c -I/usr/x86_64-w64-mingw32/include -L/usr/x86_64-w64-mingw32/lib -lcrypto -lssl -g -Wall -Wextra -static
         fi
 
     - name: Upload compiled binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: virtual_hsm_${{ matrix.target }}
         path: virtual_hsm_*
