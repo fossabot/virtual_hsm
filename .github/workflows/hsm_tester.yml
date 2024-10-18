@@ -79,12 +79,18 @@ jobs:
 
         echo "Signing data..."
         echo -n "Test data to sign" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -sign test_key_pair > signature.bin
+        
+        echo "Signature contents:"
+        xxd signature.bin
 
         echo "Verifying signature..."
         echo -n "Test data to sign" | cat - signature.bin | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
 
         echo "Exporting public key..."
         ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key.pem
+        
+        echo "Public key contents:"
+        cat public_key.pem
 
         echo "Importing public key..."
         cat public_key.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
