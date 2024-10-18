@@ -124,7 +124,9 @@ jobs:
 
     # Step 2: Install tools and compile for Linux ARM
     - name: Install ARM dependencies
-      run: sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      run: |
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+        sudo apt-get install -y libssl-dev:arm64
 
     - name: Compile for Linux ARM
       run: aarch64-linux-gnu-gcc -o virtual_hsm_linux_arm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
