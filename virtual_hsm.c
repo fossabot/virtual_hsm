@@ -387,8 +387,16 @@ int main(int argc, char *argv[]) {
         }
         unsigned char signature[MAX_SIGNATURE_SIZE];
         unsigned char data[1024];
-        size_t data_len = fread(data, 1, sizeof(data), stdin);
-        size_t sig_len = fread(signature, 1, sizeof(signature), stdin);
+        size_t data_len = 0;
+        size_t sig_len = 0;
+
+        // Read data first
+        data_len = fread(data, 1, sizeof(data), stdin);
+        DEBUG_PRINT("Read data length: %zu", data_len);
+
+        // Then read signature
+        sig_len = fread(signature, 1, sizeof(signature), stdin);
+        DEBUG_PRINT("Read signature length: %zu", sig_len);
         
         DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
         DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
