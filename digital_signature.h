@@ -26,32 +26,46 @@ int import_public_key(const char *name, const char *pem_key);
 KeyPair *find_key_pair(const char *name) {
     for (int i = 0; i < key_count; i++) {
         if (strcmp(keystore[i].name, name) == 0) {
-            // Decrypt the key
-            unsigned char decrypted_key[KEY_SIZE];
-            int decrypted_len = decrypt_key(keystore[i].encrypted_key, 
-                                            keystore[i].encrypted_len,
-                                            decrypted_key, 
-                                            keystore[i].iv,
-                                            keystore[i].tag);
-            
-            if (decrypted_len != KEY_SIZE) {
-                return NULL;
-            }
-            
-            // Convert the decrypted key to an EVP_PKEY structure
-            EVP_PKEY *pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, decrypted_key, KEY_SIZE);
-            if (!pkey) {
-                return NULL;
-            }
-            
             KeyPair *pair = malloc(sizeof(KeyPair));
-            pair->pkey = pkey;
+            if (!pair) {
+                DEBUG_PRINT("Memory allocation failed for KeyPair");
+                return NULL;
+            }
+            
             strncpy(pair->name, name, MAX_NAME_LENGTH);
             pair->name[MAX_NAME_LENGTH] = '\0';
+
+            if (keystore[i].is_public_key) {
+                DEBUG_PRINT("Found public key: %s", name);
+                pair->pkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, keystore[i].key_data, KEY_SIZE);
+            } else {
+                DEBUG_PRINT("Found private key: %s", name);
+                unsigned char decrypted_key[KEY_SIZE];
+                int decrypted_len = decrypt_key(keystore[i].key_data, 
+                                                keystore[i].encrypted_len,
+                                                decrypted_key, 
+                                                keystore[i].iv,
+                                                keystore[i].tag);
+                
+                if (decrypted_len != KEY_SIZE) {
+                    DEBUG_PRINT("Decryption failed for key: %s", name);
+                    free(pair);
+                    return NULL;
+                }
+                
+                pair->pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, decrypted_key, KEY_SIZE);
+            }
+            
+            if (!pair->pkey) {
+                DEBUG_PRINT("Failed to create EVP_PKEY for key: %s", name);
+                free(pair);
+                return NULL;
+            }
             
             return pair;
         }
     }
+    DEBUG_PRINT("Key not found: %s", name);
     return NULL;
 }
 
@@ -67,15 +81,29 @@ int generate_key_pair(const char *name) {
     
     EVP_PKEY_CTX_free(pctx);
     
-    size_t key_len = KEY_SIZE;
-    unsigned char key_data[KEY_SIZE];
+    size_t priv_len = KEY_SIZE;
+    unsigned char priv_key[KEY_SIZE];
     
-    if (EVP_PKEY_get_raw_private_key(pkey, key_data, &key_len) <= 0 || key_len != KEY_SIZE) {
+    if (EVP_PKEY_get_raw_private_key(pkey, priv_key, &priv_len) <= 0 || priv_len != KEY_SIZE) {
         EVP_PKEY_free(pkey);
         return 0;
     }
     
-    store_key(name, key_data);
+    store_key(name, priv_key, 0);  // 0 indicates it's a private key
+    
+    // Also store the public key
+    size_t pub_len = KEY_SIZE;
+    unsigned char pub_key[KEY_SIZE];
+    
+    if (EVP_PKEY_get_raw_public_key(pkey, pub_key, &pub_len) <= 0 || pub_len != KEY_SIZE) {
+        EVP_PKEY_free(pkey);
+        return 0;
+    }
+    
+    char pub_name[MAX_NAME_LENGTH + 1];
+    snprintf(pub_name, sizeof(pub_name), "%s_public", name);
+    store_key(pub_name, pub_key, 1);  // 1 indicates it's a public key
+    
     EVP_PKEY_free(pkey);
     return 1;
 }
@@ -206,7 +234,8 @@ int import_public_key(const char *name, const char *pem_key) {
         return 0;
     }
     
-    store_key(name, key_data);
+    // Store public key without encryption
+    store_public_key(name, key_data, key_len);
     EVP_PKEY_free(pkey);
     return 1;
 }
