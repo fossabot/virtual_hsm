@@ -22,6 +22,9 @@ int verify_signature(const char *key_name, const unsigned char *data, size_t dat
 int export_public_key(const char *key_name, char **pem_key);
 int import_public_key(const char *name, const char *pem_key);
 
+// from virtual_hsm.c
+void store_public_key(const char *name, const unsigned char *key, size_t key_len);
+
 // Helper function to find a key pair by name
 KeyPair *find_key_pair(const char *name) {
     for (int i = 0; i < key_count; i++) {
