@@ -360,36 +360,41 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     generate_key_pair(argv[i + 1]);
-} else if (strcmp(argv[i], "-sign") == 0) {
-    if (i + 2 >= argc) {
-        print_usage();
-        return 1;
-    }
-    unsigned char signature[MAX_SIGNATURE_SIZE];
-    size_t sig_len = sizeof(signature);
-    unsigned char data[1024];
-    size_t data_len = fread(data, 1, sizeof(data), stdin);
-    if (sign_data(argv[i + 1], data, data_len, signature, &sig_len)) {
-        fwrite(signature, 1, sig_len, stdout);
-    } else {
-        fprintf(stderr, "Signing failed\n");
-        return 1;
-    }
-} else if (strcmp(argv[i], "-verify") == 0) {
-    if (i + 2 >= argc) {
-        print_usage();
-        return 1;
-    }
-    unsigned char signature[MAX_SIGNATURE_SIZE];
-    size_t sig_len = fread(signature, 1, sizeof(signature), stdin);
-    unsigned char data[1024];
-    size_t data_len = fread(data, 1, sizeof(data), stdin);
-    if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
-        printf("Signature verified\n");
-    } else {
-        fprintf(stderr, "Signature verification failed\n");
-        return 1;
-    }
+    } else if (strcmp(argv[i], "-sign") == 0) {
+        if (i + 1 >= argc) {
+            print_usage();
+            return 1;
+        }
+        unsigned char signature[MAX_SIGNATURE_SIZE];
+        size_t sig_len = sizeof(signature);
+        unsigned char data[1024];
+        size_t data_len = fread(data, 1, sizeof(data), stdin);
+        
+        DEBUG_PRINT("Signing data for key: %s", argv[i + 1]);
+        DEBUG_PRINT("Data length: %zu", data_len);
+        
+        if (sign_data(argv[i + 1], data, data_len, signature, &sig_len)) {
+            DEBUG_PRINT("Signature created, length: %zu", sig_len);
+            fwrite(signature, 1, sig_len, stdout);
+        } else {
+            fprintf(stderr, "Signing failed\n");
+            return 1;
+        }
+    } else if (strcmp(argv[i], "-verify") == 0) {
+        if (i + 2 >= argc) {
+            print_usage();
+            return 1;
+        }
+        unsigned char signature[MAX_SIGNATURE_SIZE];
+        size_t sig_len = fread(signature, 1, sizeof(signature), stdin);
+        unsigned char data[1024];
+        size_t data_len = fread(data, 1, sizeof(data), stdin);
+        if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
+            printf("Signature verified\n");
+        } else {
+            fprintf(stderr, "Signature verification failed\n");
+            return 1;
+        }
 } else if (strcmp(argv[i], "-export_public_key") == 0) {
     if (i + 1 >= argc) {
         print_usage();
