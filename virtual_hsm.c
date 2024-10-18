@@ -381,52 +381,55 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     } else if (strcmp(argv[i], "-verify") == 0) {
-        if (i + 2 >= argc) {
+        if (i + 1 >= argc) {
             print_usage();
             return 1;
         }
         unsigned char signature[MAX_SIGNATURE_SIZE];
-        size_t sig_len = fread(signature, 1, sizeof(signature), stdin);
         unsigned char data[1024];
         size_t data_len = fread(data, 1, sizeof(data), stdin);
+        size_t sig_len = fread(signature, 1, sizeof(signature), stdin);
+        
+        DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
+        DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
+        
         if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
             printf("Signature verified\n");
         } else {
             fprintf(stderr, "Signature verification failed\n");
             return 1;
         }
-} else if (strcmp(argv[i], "-export_public_key") == 0) {
-    if (i + 1 >= argc) {
-        print_usage();
-        return 1;
-    }
-    char *pem_key;
-    if (export_public_key(argv[i + 1], &pem_key)) {
-        printf("%s", pem_key);
-        free(pem_key);
+    } else if (strcmp(argv[i], "-export_public_key") == 0) {
+        if (i + 1 >= argc) {
+            print_usage();
+            return 1;
+        }
+        char *pem_key;
+        if (export_public_key(argv[i + 1], &pem_key)) {
+            printf("%s", pem_key);
+            free(pem_key);
+        } else {
+            fprintf(stderr, "Public key export failed\n");
+            return 1;
+        }
+    } else if (strcmp(argv[i], "-import_public_key") == 0) {
+        if (i + 1 >= argc) {
+            print_usage();
+            return 1;
+        }
+        char pem_key[4096];
+        size_t pem_len = fread(pem_key, 1, sizeof(pem_key), stdin);
+        pem_key[pem_len] = '\0';
+        if (import_public_key(argv[i + 1], pem_key)) {
+            printf("Public key imported successfully\n");
+        } else {
+            fprintf(stderr, "Public key import failed\n");
+            return 1;
+        }  
     } else {
-        fprintf(stderr, "Public key export failed\n");
-        return 1;
-    }
-} else if (strcmp(argv[i], "-import_public_key") == 0) {
-    if (i + 1 >= argc) {
-        print_usage();
-        return 1;
-    }
-    char pem_key[4096];
-    size_t pem_len = fread(pem_key, 1, sizeof(pem_key), stdin);
-    pem_key[pem_len] = '\0';
-    if (import_public_key(argv[i + 1], pem_key)) {
-        printf("Public key imported successfully\n");
-    } else {
-        fprintf(stderr, "Public key import failed\n");
-        return 1;
-    }
-    
-} else {
-        print_usage();
-        return 1;
-    }
+            print_usage();
+            return 1;
+        }
 
     return 0;
 }
