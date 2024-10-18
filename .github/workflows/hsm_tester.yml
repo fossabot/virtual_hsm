@@ -106,7 +106,8 @@ jobs:
         export ACTION_KEY=""
         export APP_SEC_KEY=""
 
- cross-compile:
+
+  cross-compile:
     needs: build-and-test
     runs-on: ubuntu-latest
     strategy:
