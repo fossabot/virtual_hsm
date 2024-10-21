@@ -51,7 +51,7 @@ void list_keys(void);
 void print_usage(void);
 void store_public_key(const char *name, const unsigned char *key, size_t key_len);
 
-// Include the digital_signature.h file
+// our header funcs
 #include "digital_signature.h"
 
 // Utility Functions
@@ -410,59 +410,110 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(argv[i], "-list") == 0) {
         list_keys();
     } else if (strcmp(argv[i], "-generate_key_pair") == 0) {
-    if (i + 1 >= argc) {
-        print_usage();
-        return 1;
-    }
-    generate_key_pair(argv[i + 1]);
+        if (i + 1 >= argc) {
+            print_usage();
+            return 1;
+        }
+        generate_key_pair(argv[i + 1]);
     } else if (strcmp(argv[i], "-sign") == 0) {
         if (i + 1 >= argc) {
             print_usage();
             return 1;
         }
+
+        unsigned char *data = NULL;
+        size_t data_len = 0;
+        size_t buffer_size = 1024;  // Initial buffer size
+        
+        // Dynamically allocate and read data
+        data = malloc(buffer_size);
+        if (!data) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return 1;
+        }
+
+        while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
+            buffer_size *= 2;
+            unsigned char *temp = realloc(data, buffer_size);
+            if (!temp) {
+                fprintf(stderr, "Memory reallocation failed\n");
+                free(data);
+                data = NULL;
+                return 1;
+            }
+            data = temp;
+        }
+
+        DEBUG_PRINT("Read data length: %zu", data_len);
+        
         unsigned char signature[MAX_SIGNATURE_SIZE];
         size_t sig_len = sizeof(signature);
-        unsigned char data[1024];
-        size_t data_len = fread(data, 1, sizeof(data), stdin);
-        
+
         DEBUG_PRINT("Signing data for key: %s", argv[i + 1]);
-        DEBUG_PRINT("Data length: %zu", data_len);
         
         if (sign_data(argv[i + 1], data, data_len, signature, &sig_len)) {
             DEBUG_PRINT("Signature created, length: %zu", sig_len);
             fwrite(signature, 1, sig_len, stdout);
         } else {
             fprintf(stderr, "Signing failed\n");
+            free(data);
+            data = NULL;
             return 1;
         }
-} else if (strcmp(argv[i], "-verify") == 0) {
-    if (i + 1 >= argc) {
-        print_usage();
-        return 1;
-    }
-    unsigned char signature[MAX_SIGNATURE_SIZE];
-    unsigned char data[1024];
-    size_t data_len = 0;
-    size_t sig_len = 0;
 
-    // Read data first (17 bytes)
-    data_len = fread(data, 1, 17, stdin);
-    DEBUG_PRINT("Read data length: %zu", data_len);
+        free(data);
+        data = NULL;
+    } else if (strcmp(argv[i], "-verify") == 0) {
+        if (i + 1 >= argc) {
+            print_usage();
+            return 1;
+        }
+        unsigned char signature[MAX_SIGNATURE_SIZE];
+        unsigned char *data = NULL;
+        size_t data_len = 0;
+        size_t sig_len = 0;
+        size_t buffer_size = 1024;  // Initial buffer size
 
-    // Then read signature (64 bytes)
-    sig_len = fread(signature, 1, 64, stdin);
-    DEBUG_PRINT("Read signature length: %zu", sig_len);
-    
-    DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
-    DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
-    
-    if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
-        printf("Signature verified\n");
-    } else {
-        fprintf(stderr, "Signature verification failed\n");
-        return 1;
-    }
-} else if (strcmp(argv[i], "-export_public_key") == 0) {
+        // Dynamically allocate and read data
+        data = malloc(buffer_size);
+        if (!data) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return 1;
+        }
+
+        while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
+            buffer_size *= 2;
+            unsigned char *temp = realloc(data, buffer_size);
+            if (!temp) {
+                fprintf(stderr, "Memory reallocation failed\n");
+                free(data);
+                data = NULL;
+                return 1;
+            }
+            data = temp;
+        }
+
+        DEBUG_PRINT("Read data length: %zu", data_len);
+
+        // Read signature (assuming 64 bytes for Ed25519)
+        sig_len = fread(signature, 1, 64, stdin);
+        DEBUG_PRINT("Read signature length: %zu", sig_len);
+        
+        DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
+        DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
+        
+        if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
+            printf("Signature verified\n");
+        } else {
+            fprintf(stderr, "Signature verification failed\n");
+            free(data);
+            data = NULL;
+            return 1;
+        }
+
+        free(data);
+        data = NULL;
+    } else if (strcmp(argv[i], "-export_public_key") == 0) {
         if (i + 1 >= argc) {
             print_usage();
             return 1;
