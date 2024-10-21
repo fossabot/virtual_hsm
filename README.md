@@ -8,17 +8,20 @@ A virtualized hardware security management tool.
 - [Operation Notes](#operation-notes)
 - [Usage](#usage)
   - [Compilation](#compilation)
+  - [Command-line Options](#command-line-options)
   - [Key Management](#key-management)
+  - [Digital Signatures](#digital-signatures)
+  - [Public Key Operations](#public-key-operations)
   - [File Operations](#file-operations)
   - [Custom Keystore and Master Key Files](#custom-keystore-and-master-key-files)
 - [GitHub Secrets and Actions Workflow](#github-secrets-and-actions-workflow)
 - [Generating a Master Key for GitHub Secrets](#generating-a-master-key-for-github-secrets)
-- [Known Limitations](#known-limitations)
 - [Debug Output](#debug-output)
+- [Known Limitations](#known-limitations)
 
 ## Overview
 
-This HSM is exceptionally simple and is not meant to be a true HSM, but simply a virtualized expression of one that can be addressed via terminal commands. The purpose of the program is to assist those in learning how to interact with HSMs and their functionality.
+This virtual HSM is exceptionally simple and is not meant to be a true HSM, there is no actual hardware management platform in use. This is a virtualized expression of an HSM that can be addressed via terminal commands. The purpose of the program is to assist those in learning how to interact with HSMs and their functionality.
 
 **Warning: Do not use in production environments**
 
@@ -27,8 +30,11 @@ This HSM is exceptionally simple and is not meant to be a true HSM, but simply a
 - Uses the EVP (Envelope) interface for encryption and decryption, with Ed25519 signing
 - Implements error handling using OpenSSL's error reporting functions
 - Employs AES-256-GCM encryption with a unique IV for each key
+- Uses 32-byte (256-bit) keys for Ed25519 digital signatures
 - Provides persistent storage through `keystore.dat` and `master.key` split-paired files
 - Fully supports GitHub Secrets and Actions Workflow passing as Hexadecimal via command line
+- Supports digital signatures using Ed25519 algorithm
+- Allows generation, storage, and management of public/private key pairs
 
 ## Operation Notes
 
@@ -38,11 +44,23 @@ Upon execution, the program generates two files:
 2. `master.key`: The master key file required to access the HSM (paired with `keystore.dat`)
 
 Input/Output:
-- Key storage: Reads 64 hexadecimal characters (representing 32 bytes) from stdin
-- Key retrieval: Prints the key in hexadecimal format (64 characters) to stdout with a newline
+- Key storage: Reads 64 hexadecimal characters (representing 32 bytes) from stdin (terminal)
+- Key retrieval: Prints the key in hexadecimal format (64 characters) to stdout (terminal) with a newline for easy capture
+- Digital signatures: Reads data from stdin, outputs signature to stdout
+- Public key export: Outputs public key in PEM format to stdout
+- Public key import: Reads PEM formatted public key from stdin
+- The program exits with a non-zero status code on errors
+- instead of terminal we can pipe to file
 
+The keystore.dat file stores keys in a binary format, with each key entry containing:
+- Key name (up to 49 characters)
+- Key data (32 bytes)
+- Initialization Vector (12 bytes)
+- GCM Tag (16 bytes)
+- Encrypted data length
+- A flag indicating if it's a public key
 
-Why is this true:
+Why is a 64 character Hexadecimal output representative of 256 bits?:
 
 Each hexadecimal character represents 4 bits. Since there are 64 hexadecimal characters, they represent a total of 64 * 4 = 256 bits (or 32 bytes).
 
@@ -53,6 +71,21 @@ Each hexadecimal character represents 4 bits. Since there are 64 hexadecimal cha
 ```bash
 gcc -o virtual_hsm virtual_hsm.c -lcrypto
 ```
+
+### Command-line Options
+
+- `-keystore <keystore_file>`: Specify a custom keystore file
+- `-master <master_key_file>`: Specify a custom master key file
+- `-master_key <hex_key>`: Provide the master key directly as a hex string
+- `-generate_master_key`: Generate a new master key
+- `-store <key_name>`: Store a new key
+- `-retrieve <key_name>`: Retrieve a stored key
+- `-list`: List all stored keys
+- `-generate_key_pair <key_name>`: Generate a new Ed25519 key pair
+- `-sign <key_name>`: Sign data using the specified key
+- `-verify <key_name>`: Verify a signature using the specified key
+- `-export_public_key <key_name>`: Export a public key in PEM format
+- `-import_public_key <key_name>`: Import a public key in PEM format
 
 ### Key Management
 
@@ -70,6 +103,39 @@ List keys:
 ```bash
 ./virtual_hsm -list
 ```
+
+Generate a key pair:
+```bash
+./virtual_hsm -generate_key_pair mykeypair
+```
+This generates both a private key "mykeypair" and a public key "mykeypair_public".
+
+### Digital Signatures
+
+Sign data:
+```bash
+echo -n "Hello, World!" | ./virtual_hsm -sign mykeypair
+```
+
+Verify signature:
+```bash
+(echo -n "Hello, World!"; cat signature.bin) | ./virtual_hsm -verify mykeypair_public
+```
+Note: The data (17 bytes) should be followed by the signature (64 bytes).
+
+### Public Key Operations
+
+Export public key:
+```bash
+./virtual_hsm -export_public_key mykeypair_public
+```
+
+Import public key:
+```bash
+cat public_key.pem | ./virtual_hsm -import_public_key imported_public_key
+```
+
+Note: Public keys are stored unencrypted in the keystore.
 
 ### File Operations
 
@@ -122,7 +188,6 @@ Secrets on a GitHub Actions workflow:
   run: ./virtual_hsm -master_key ${{ secrets.MASTER_KEY }} -store my_key
 ```
 
-
 ## Generating a Master Key for GitHub Secrets
 
 Generate a master key suitable for use as a GitHub Secret:
@@ -145,8 +210,19 @@ The program includes debug output that is printed to stderr. These messages are 
 - Encryption and decryption processes
 - File operations
 - Error conditions
+- Digital signature operations
+- Public key operations
 
 These debug messages can be helpful for troubleshooting but are not part of the program's main output.
+
+To view debug output, redirect stderr to a file or the console:
+```bash
+./virtual_hsm -list 2>debug.log
+```
+or
+```bash
+./virtual_hsm -list 2>&1
+```
 
 ## Known Limitations
 
@@ -159,4 +235,7 @@ This implementation is for educational purposes and lacks several security featu
 - Protection against side-channel attacks
 - Undefined behavior protection (e.g., filename bounds checking)
 - No secure key erasure from memory
+- Limited error handling for some operations
+- No protection against key overwriting
+- No built-in key rotation mechanism
 - And many more!
