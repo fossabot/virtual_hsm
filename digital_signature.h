@@ -53,6 +53,7 @@ KeyPair *find_key_pair(const char *name) {
                 if (decrypted_len != KEY_SIZE) {
                     DEBUG_PRINT("Decryption failed for key: %s", name);
                     free(pair);
+                    pair = NULL;
                     return NULL;
                 }
                 
@@ -62,6 +63,7 @@ KeyPair *find_key_pair(const char *name) {
             if (!pair->pkey) {
                 DEBUG_PRINT("Failed to create EVP_PKEY for key: %s", name);
                 free(pair);
+                pair = NULL;
                 return NULL;
             }
             
@@ -79,16 +81,19 @@ int generate_key_pair(const char *name) {
     
     if (!pctx || EVP_PKEY_keygen_init(pctx) <= 0 || EVP_PKEY_keygen(pctx, &pkey) <= 0) {
         EVP_PKEY_CTX_free(pctx);
+        pctx = NULL;
         return 0;
     }
     
     EVP_PKEY_CTX_free(pctx);
+    pctx = NULL;
     
     size_t priv_len = KEY_SIZE;
     unsigned char priv_key[KEY_SIZE];
     
     if (EVP_PKEY_get_raw_private_key(pkey, priv_key, &priv_len) <= 0 || priv_len != KEY_SIZE) {
         EVP_PKEY_free(pkey);
+        pkey = NULL;
         return 0;
     }
     
@@ -100,14 +105,16 @@ int generate_key_pair(const char *name) {
     
     if (EVP_PKEY_get_raw_public_key(pkey, pub_key, &pub_len) <= 0 || pub_len != KEY_SIZE) {
         EVP_PKEY_free(pkey);
+        pkey = NULL;
         return 0;
     }
     
     char pub_name[MAX_NAME_LENGTH + 1];
     snprintf(pub_name, sizeof(pub_name), "%s_public", name);
-    store_key(pub_name, pub_key, 1);  // 1 indicates it's a public key
+    store_public_key(pub_name, pub_key, pub_len);
     
     EVP_PKEY_free(pkey);
+    pkey = NULL;
     return 1;
 }
 
@@ -138,17 +145,20 @@ int sign_data(const char *key_name, const unsigned char *data, size_t data_len, 
     if (EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, pair->pkey) <= 0) {
         DEBUG_PRINT("Failed to initialize signing");
         EVP_MD_CTX_free(md_ctx);
+        md_ctx = NULL;
         return 0;
     }
     
     if (EVP_DigestSign(md_ctx, signature, sig_len, data, data_len) <= 0) {
         DEBUG_PRINT("Failed to sign data");
         EVP_MD_CTX_free(md_ctx);
+        md_ctx = NULL;
         return 0;
     }
     
     DEBUG_PRINT("Data signed successfully, signature length: %zu", *sig_len);
     EVP_MD_CTX_free(md_ctx);
+    md_ctx = NULL;
     return 1;
 }
 
@@ -179,6 +189,7 @@ int verify_signature(const char *key_name, const unsigned char *data, size_t dat
     if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, pair->pkey) <= 0) {
         DEBUG_PRINT("Failed to initialize verification");
         EVP_MD_CTX_free(md_ctx);
+        md_ctx = NULL;
         return 0;
     }
     
@@ -194,6 +205,7 @@ int verify_signature(const char *key_name, const unsigned char *data, size_t dat
     }
     
     EVP_MD_CTX_free(md_ctx);
+    md_ctx = NULL;
     return (ret == 1);
 }
 
@@ -207,6 +219,7 @@ int export_public_key(const char *key_name, char **pem_key) {
     BIO *bio = BIO_new(BIO_s_mem());
     if (!bio || PEM_write_bio_PUBKEY(bio, pair->pkey) <= 0) {
         BIO_free(bio);
+        bio = NULL;
         return 0;
     }
     
@@ -216,6 +229,7 @@ int export_public_key(const char *key_name, char **pem_key) {
     (*pem_key)[pem_size] = '\0';
     
     BIO_free(bio);
+    bio = NULL;
     return 1;
 }
 
@@ -224,6 +238,7 @@ int import_public_key(const char *name, const char *pem_key) {
     BIO *bio = BIO_new_mem_buf(pem_key, -1);
     EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
     BIO_free(bio);
+    bio = NULL;
     
     if (!pkey) {
         return 0;
@@ -234,12 +249,14 @@ int import_public_key(const char *name, const char *pem_key) {
     
     if (EVP_PKEY_get_raw_public_key(pkey, key_data, &key_len) <= 0 || key_len != KEY_SIZE) {
         EVP_PKEY_free(pkey);
+        pkey = NULL;
         return 0;
     }
     
     // Store public key without encryption
     store_public_key(name, key_data, key_len);
     EVP_PKEY_free(pkey);
+    pkey = NULL;
     return 1;
 }
 
