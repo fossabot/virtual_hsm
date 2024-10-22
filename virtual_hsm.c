@@ -362,15 +362,25 @@ typedef struct {
 
 // Function to initialize default values for command line arguments
 void init_command_line_args(CommandLineArgs* args) {
-    strncpy(args->keystore_file, "keystore.dat", MAX_FILENAME - 1);
+    // Initialize with global default values
+    strncpy(args->keystore_file, keystore_file, MAX_FILENAME - 1);
     args->keystore_file[MAX_FILENAME - 1] = '\0';
     
-    strncpy(args->master_key_file, "master.key", MAX_FILENAME - 1);
+    strncpy(args->master_key_file, master_key_file, MAX_FILENAME - 1);
     args->master_key_file[MAX_FILENAME - 1] = '\0';
     
     args->provided_master_key = NULL;
     args->command = NULL;
     args->key_name = NULL;
+}
+
+// Function to update global file paths from arguments
+void update_global_paths(const CommandLineArgs* args) {
+    strncpy(keystore_file, args->keystore_file, MAX_FILENAME - 1);
+    keystore_file[MAX_FILENAME - 1] = '\0';
+    
+    strncpy(master_key_file, args->master_key_file, MAX_FILENAME - 1);
+    master_key_file[MAX_FILENAME - 1] = '\0';
 }
 
 // Function to handle command line arguments
@@ -382,17 +392,22 @@ int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
         return 0;
     }
 
+    init_command_line_args(args);
+
     int i;
     // Parse optional arguments first
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-keystore") == 0 && i + 1 < argc) {
             strncpy(args->keystore_file, argv[++i], MAX_FILENAME - 1);
             args->keystore_file[MAX_FILENAME - 1] = '\0';
+            DEBUG_PRINT("Keystore file set to: %s", args->keystore_file);
         } else if (strcmp(argv[i], "-master") == 0 && i + 1 < argc) {
             strncpy(args->master_key_file, argv[++i], MAX_FILENAME - 1);
             args->master_key_file[MAX_FILENAME - 1] = '\0';
+            DEBUG_PRINT("Master key file set to: %s", args->master_key_file);
         } else if (strcmp(argv[i], "-master_key") == 0 && i + 1 < argc) {
             args->provided_master_key = argv[++i];
+            DEBUG_PRINT("Master key provided via command line");
         } else {
             break;  // Found the command
         }
@@ -405,11 +420,13 @@ int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
 
     // Store the command
     args->command = argv[i];
+    DEBUG_PRINT("Command: %s", args->command);
     
     // Store the key name if the command requires it
     if (i + 1 < argc && strcmp(args->command, "-list") != 0 && 
         strcmp(args->command, "-generate_master_key") != 0) {
         args->key_name = argv[i + 1];
+        DEBUG_PRINT("Key name: %s", args->key_name);
     }
 
     // Validate command and arguments
@@ -432,15 +449,18 @@ int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
         return 0;
     }
 
+    // Update global file paths
+    update_global_paths(args);
+    
     DEBUG_PRINT("Command line arguments parsed successfully");
     return 1;
 }
 
+// Updated main function using the argument handler
 int main(int argc, char *argv[]) {
     fprintf(stderr, "Debug: Starting virtual_hsm\n");
     
     CommandLineArgs args;
-    init_command_line_args(&args);
     
     if (!handle_arguments(argc, argv, &args)) {
         return 1;
@@ -512,8 +532,6 @@ void handle_sign_command(const char* key_name) {
     unsigned char signature[MAX_SIGNATURE_SIZE];
     size_t sig_len = sizeof(signature);
 
-    DEBUG_PRINT("Signing data for key: %s", key_name);
-    
     if (sign_data(key_name, data, data_len, signature, &sig_len)) {
         DEBUG_PRINT("Signature created, length: %zu", sig_len);
         fwrite(signature, 1, sig_len, stdout);
