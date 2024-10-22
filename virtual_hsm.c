@@ -463,56 +463,65 @@ int main(int argc, char *argv[]) {
 
         free(data);
         data = NULL;
-    } else if (strcmp(argv[i], "-verify") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-        unsigned char signature[MAX_SIGNATURE_SIZE];
-        unsigned char *data = NULL;
-        size_t data_len = 0;
-        size_t sig_len = 0;
-        size_t buffer_size = 1024;  // Initial buffer size
+} else if (strcmp(argv[i], "-verify") == 0) {
+    if (i + 1 >= argc) {
+        print_usage();
+        return 1;
+    }
+    unsigned char signature[MAX_SIGNATURE_SIZE];
+    unsigned char *data = NULL;
+    size_t data_len = 0;
+    size_t sig_len = 0;
+    size_t buffer_size = 1024;  // Initial buffer size
 
-        // Dynamically allocate and read data
-        data = malloc(buffer_size);
-        if (!data) {
-            fprintf(stderr, "Memory allocation failed\n");
-            return 1;
-        }
+    // Dynamically allocate and read data
+    data = malloc(buffer_size);
+    if (!data) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return 1;
+    }
 
-        while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
-            buffer_size *= 2;
-            unsigned char *temp = realloc(data, buffer_size);
-            if (!temp) {
-                fprintf(stderr, "Memory reallocation failed\n");
-                free(data);
-                data = NULL;
-                return 1;
-            }
-            data = temp;
-        }
-
-        DEBUG_PRINT("Read data length: %zu", data_len);
-
-        // Read signature (assuming 64 bytes for Ed25519)
-        sig_len = fread(signature, 1, 64, stdin);
-        DEBUG_PRINT("Read signature length: %zu", sig_len);
-        
-        DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
-        DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
-        
-        if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
-            printf("Signature verified\n");
-        } else {
-            fprintf(stderr, "Signature verification failed\n");
+    while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
+        buffer_size *= 2;
+        unsigned char *temp = realloc(data, buffer_size);
+        if (!temp) {
+            fprintf(stderr, "Memory reallocation failed\n");
             free(data);
             data = NULL;
             return 1;
         }
+        data = temp;
+    }
 
+    // The last 64 bytes (for Ed25519) of the input are the signature
+    if (data_len < 64) {
+        fprintf(stderr, "Input data too short\n");
         free(data);
         data = NULL;
+        return 1;
+    }
+
+    sig_len = 64;  // Ed25519 signature length
+    memcpy(signature, data + data_len - sig_len, sig_len);
+    data_len -= sig_len;  // Adjust data length
+
+    DEBUG_PRINT("Read data length: %zu", data_len);
+    DEBUG_PRINT("Read signature length: %zu", sig_len);
+    
+    DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
+    DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
+    
+    if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
+        printf("Signature verified\n");
+    } else {
+        fprintf(stderr, "Signature verification failed\n");
+        free(data);
+        data = NULL;
+        return 1;
+    }
+
+    free(data);
+    data = NULL;
     } else if (strcmp(argv[i], "-export_public_key") == 0) {
         if (i + 1 >= argc) {
             print_usage();
