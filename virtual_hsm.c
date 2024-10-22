@@ -351,43 +351,110 @@ void print_usage() {
     fprintf(stderr, "  -import_public_key <key_name>\n");
 }
 
-int main(int argc, char *argv[]) {
-    fprintf(stderr, "Debug: Starting virtual_hsm\n");
+// Structure to hold parsed command line arguments
+typedef struct {
+    char keystore_file[MAX_FILENAME];
+    char master_key_file[MAX_FILENAME];
+    const char* provided_master_key;
+    const char* command;
+    const char* key_name;
+} CommandLineArgs;
+
+// Function to initialize default values for command line arguments
+void init_command_line_args(CommandLineArgs* args) {
+    strncpy(args->keystore_file, "keystore.dat", MAX_FILENAME - 1);
+    args->keystore_file[MAX_FILENAME - 1] = '\0';
+    
+    strncpy(args->master_key_file, "master.key", MAX_FILENAME - 1);
+    args->master_key_file[MAX_FILENAME - 1] = '\0';
+    
+    args->provided_master_key = NULL;
+    args->command = NULL;
+    args->key_name = NULL;
+}
+
+// Function to handle command line arguments
+int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
+    DEBUG_PRINT("Parsing command line arguments");
+    
+    if (argc < 2) {
+        print_usage();
+        return 0;
+    }
+
     int i;
-    const char *provided_master_key = NULL;
+    // Parse optional arguments first
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-keystore") == 0 && i + 1 < argc) {
-            strncpy(keystore_file, argv[++i], MAX_FILENAME - 1);
-            keystore_file[MAX_FILENAME - 1] = '\0';
+            strncpy(args->keystore_file, argv[++i], MAX_FILENAME - 1);
+            args->keystore_file[MAX_FILENAME - 1] = '\0';
         } else if (strcmp(argv[i], "-master") == 0 && i + 1 < argc) {
-            strncpy(master_key_file, argv[++i], MAX_FILENAME - 1);
-            master_key_file[MAX_FILENAME - 1] = '\0';
+            strncpy(args->master_key_file, argv[++i], MAX_FILENAME - 1);
+            args->master_key_file[MAX_FILENAME - 1] = '\0';
         } else if (strcmp(argv[i], "-master_key") == 0 && i + 1 < argc) {
-            provided_master_key = argv[++i];
+            args->provided_master_key = argv[++i];
         } else {
-            break;
+            break;  // Found the command
         }
     }
 
     if (i >= argc) {
         print_usage();
+        return 0;
+    }
+
+    // Store the command
+    args->command = argv[i];
+    
+    // Store the key name if the command requires it
+    if (i + 1 < argc && strcmp(args->command, "-list") != 0 && 
+        strcmp(args->command, "-generate_master_key") != 0) {
+        args->key_name = argv[i + 1];
+    }
+
+    // Validate command and arguments
+    if (strcmp(args->command, "-store") == 0 ||
+        strcmp(args->command, "-retrieve") == 0 ||
+        strcmp(args->command, "-generate_key_pair") == 0 ||
+        strcmp(args->command, "-sign") == 0 ||
+        strcmp(args->command, "-verify") == 0 ||
+        strcmp(args->command, "-export_public_key") == 0 ||
+        strcmp(args->command, "-import_public_key") == 0) {
+        if (!args->key_name) {
+            fprintf(stderr, "Error: Key name required for %s command\n", args->command);
+            print_usage();
+            return 0;
+        }
+    } else if (strcmp(args->command, "-list") != 0 && 
+               strcmp(args->command, "-generate_master_key") != 0) {
+        fprintf(stderr, "Error: Unknown command: %s\n", args->command);
+        print_usage();
+        return 0;
+    }
+
+    DEBUG_PRINT("Command line arguments parsed successfully");
+    return 1;
+}
+
+int main(int argc, char *argv[]) {
+    fprintf(stderr, "Debug: Starting virtual_hsm\n");
+    
+    CommandLineArgs args;
+    init_command_line_args(&args);
+    
+    if (!handle_arguments(argc, argv, &args)) {
         return 1;
     }
 
-    if (strcmp(argv[i], "-generate_master_key") == 0) {
+    if (strcmp(args.command, "-generate_master_key") == 0) {
         generate_master_key();
         return 0;
     }
 
-    load_master_key(provided_master_key);
+    load_master_key(args.provided_master_key);
     load_keystore();
 
-    if (strcmp(argv[i], "-store") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-        // Read hex string from stdin
+    if (strcmp(args.command, "-store") == 0) {
         char hex_key[KEY_SIZE * 2 + 1];
         if (fread(hex_key, 1, KEY_SIZE * 2, stdin) != KEY_SIZE * 2) {
             fprintf(stderr, "Error: Invalid key input. Please provide %d hex characters.\n", KEY_SIZE * 2);
@@ -395,90 +462,38 @@ int main(int argc, char *argv[]) {
         }
         hex_key[KEY_SIZE * 2] = '\0';
         
-        // Convert hex to binary
         unsigned char binary_key[KEY_SIZE];
         hex_to_bytes(hex_key, binary_key, KEY_SIZE);
-        
-        store_key(argv[i + 1], binary_key, 0);  // 0 indicates it's not a public key
-    } else if (strcmp(argv[i], "-retrieve") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-
-        retrieve_key(argv[i + 1]);
-    } else if (strcmp(argv[i], "-list") == 0) {
+        store_key(args.key_name, binary_key, 0);
+    } else if (strcmp(args.command, "-retrieve") == 0) {
+        retrieve_key(args.key_name);
+    } else if (strcmp(args.command, "-list") == 0) {
         list_keys();
-    } else if (strcmp(argv[i], "-generate_key_pair") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-        generate_key_pair(argv[i + 1]);
-    } else if (strcmp(argv[i], "-sign") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-
-        unsigned char *data = NULL;
-        size_t data_len = 0;
-        size_t buffer_size = 1024;  // Initial buffer size
-        
-        // Dynamically allocate and read data
-        data = malloc(buffer_size);
-        if (!data) {
-            fprintf(stderr, "Memory allocation failed\n");
-            return 1;
-        }
-
-        while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
-            buffer_size *= 2;
-            unsigned char *temp = realloc(data, buffer_size);
-            if (!temp) {
-                fprintf(stderr, "Memory reallocation failed\n");
-                free(data);
-                data = NULL;
-                return 1;
-            }
-            data = temp;
-        }
-
-        DEBUG_PRINT("Read data length: %zu", data_len);
-        
-        unsigned char signature[MAX_SIGNATURE_SIZE];
-        size_t sig_len = sizeof(signature);
-
-        DEBUG_PRINT("Signing data for key: %s", argv[i + 1]);
-        
-        if (sign_data(argv[i + 1], data, data_len, signature, &sig_len)) {
-            DEBUG_PRINT("Signature created, length: %zu", sig_len);
-            fwrite(signature, 1, sig_len, stdout);
-        } else {
-            fprintf(stderr, "Signing failed\n");
-            free(data);
-            data = NULL;
-            return 1;
-        }
-
-        free(data);
-        data = NULL;
-} else if (strcmp(argv[i], "-verify") == 0) {
-    if (i + 1 >= argc) {
-        print_usage();
-        return 1;
+    } else if (strcmp(args.command, "-generate_key_pair") == 0) {
+        generate_key_pair(args.key_name);
+    } else if (strcmp(args.command, "-sign") == 0) {
+        handle_sign_command(args.key_name);
+    } else if (strcmp(args.command, "-verify") == 0) {
+        handle_verify_command(args.key_name);
+    } else if (strcmp(args.command, "-export_public_key") == 0) {
+        handle_export_public_key_command(args.key_name);
+    } else if (strcmp(args.command, "-import_public_key") == 0) {
+        handle_import_public_key_command(args.key_name);
     }
-    unsigned char signature[MAX_SIGNATURE_SIZE];
+
+    return 0;
+}
+
+// Helper functions for handling specific commands
+void handle_sign_command(const char* key_name) {
     unsigned char *data = NULL;
     size_t data_len = 0;
-    size_t sig_len = 0;
-    size_t buffer_size = 1024;  // Initial buffer size
-
-    // Dynamically allocate and read data
+    size_t buffer_size = 1024;
+    
     data = malloc(buffer_size);
     if (!data) {
         fprintf(stderr, "Memory allocation failed\n");
-        return 1;
+        exit(1);
     }
 
     while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
@@ -487,72 +502,95 @@ int main(int argc, char *argv[]) {
         if (!temp) {
             fprintf(stderr, "Memory reallocation failed\n");
             free(data);
-            data = NULL;
-            return 1;
+            exit(1);
         }
         data = temp;
     }
 
-    // The last 64 bytes (for Ed25519) of the input are the signature
+    DEBUG_PRINT("Read data length: %zu", data_len);
+    
+    unsigned char signature[MAX_SIGNATURE_SIZE];
+    size_t sig_len = sizeof(signature);
+
+    DEBUG_PRINT("Signing data for key: %s", key_name);
+    
+    if (sign_data(key_name, data, data_len, signature, &sig_len)) {
+        DEBUG_PRINT("Signature created, length: %zu", sig_len);
+        fwrite(signature, 1, sig_len, stdout);
+    } else {
+        fprintf(stderr, "Signing failed\n");
+        free(data);
+        exit(1);
+    }
+
+    free(data);
+}
+
+void handle_verify_command(const char* key_name) {
+    unsigned char signature[MAX_SIGNATURE_SIZE];
+    unsigned char *data = NULL;
+    size_t data_len = 0;
+    size_t sig_len = 0;
+    size_t buffer_size = 1024;
+
+    data = malloc(buffer_size);
+    if (!data) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+
+    while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
+        buffer_size *= 2;
+        unsigned char *temp = realloc(data, buffer_size);
+        if (!temp) {
+            fprintf(stderr, "Memory reallocation failed\n");
+            free(data);
+            exit(1);
+        }
+        data = temp;
+    }
+
     if (data_len < 64) {
         fprintf(stderr, "Input data too short\n");
         free(data);
-        data = NULL;
-        return 1;
+        exit(1);
     }
 
-    sig_len = 64;  // Ed25519 signature length
+    sig_len = 64;
     memcpy(signature, data + data_len - sig_len, sig_len);
-    data_len -= sig_len;  // Adjust data length
+    data_len -= sig_len;
 
-    DEBUG_PRINT("Read data length: %zu", data_len);
-    DEBUG_PRINT("Read signature length: %zu", sig_len);
-    
-    DEBUG_PRINT("Verifying signature for key: %s", argv[i + 1]);
-    DEBUG_PRINT("Data length: %zu, Signature length: %zu", data_len, sig_len);
-    
-    if (verify_signature(argv[i + 1], data, data_len, signature, sig_len)) {
+    if (verify_signature(key_name, data, data_len, signature, sig_len)) {
         printf("Signature verified\n");
     } else {
         fprintf(stderr, "Signature verification failed\n");
         free(data);
-        data = NULL;
-        return 1;
+        exit(1);
     }
 
     free(data);
-    data = NULL;
-    } else if (strcmp(argv[i], "-export_public_key") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-        char *pem_key;
-        if (export_public_key(argv[i + 1], &pem_key)) {
-            printf("%s", pem_key);
-            free(pem_key);
-        } else {
-            fprintf(stderr, "Public key export failed\n");
-            return 1;
-        }
-    } else if (strcmp(argv[i], "-import_public_key") == 0) {
-        if (i + 1 >= argc) {
-            print_usage();
-            return 1;
-        }
-        char pem_key[4096];
-        size_t pem_len = fread(pem_key, 1, sizeof(pem_key), stdin);
-        pem_key[pem_len] = '\0';
-        if (import_public_key(argv[i + 1], pem_key)) {
-            printf("Public key imported successfully\n");
-        } else {
-            fprintf(stderr, "Public key import failed\n");
-            return 1;
-        }  
-    } else {
-            print_usage();
-            return 1;
-        }
+}
 
-    return 0;
+void handle_export_public_key_command(const char* key_name) {
+    char *pem_key;
+    if (export_public_key(key_name, &pem_key)) {
+        printf("%s", pem_key);
+        free(pem_key);
+    } else {
+        fprintf(stderr, "Public key export failed\n");
+        exit(1);
+    }
+}
+
+void handle_import_public_key_command(const char* key_name) {
+    char pem_key[4096];
+    size_t pem_len = fread(pem_key, 1, sizeof(pem_key), stdin);
+    pem_key[pem_len] = '\0';
+    
+    if (import_public_key(key_name, pem_key)) {
+        printf("Public key imported successfully\n");
+    } else {
+        fprintf(stderr, "Public key import failed\n");
+        exit(1);
+    }
 }
