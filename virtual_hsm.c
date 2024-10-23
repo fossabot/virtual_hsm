@@ -40,6 +40,11 @@ void retrieve_key(const char *name);
 void list_keys(void);
 void store_public_key(const char *name, const unsigned char *key, size_t key_len);
 
+void handle_sign_command(const char* key_name);
+void handle_verify_command(const char* key_name);
+void handle_export_public_key_command(const char* key_name);
+void handle_import_public_key_command(const char* key_name);
+
 
 
 // Utility Functions
@@ -337,7 +342,81 @@ void list_keys() {
     }
 }
 
-// Main function updated to use command_args.h
+
+// Function to handle command line arguments
+int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
+    DEBUG_PRINT("Parsing command line arguments");
+    
+    if (argc < 2) {
+        print_usage();
+        return 0;
+    }
+
+    init_command_line_args(args);
+
+    int i;
+    // Parse optional arguments first
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-keystore") == 0 && i + 1 < argc) {
+            strncpy(args->keystore_file, argv[++i], MAX_FILENAME - 1);
+            args->keystore_file[MAX_FILENAME - 1] = '\0';
+            DEBUG_PRINT("Keystore file set to: %s", args->keystore_file);
+        } else if (strcmp(argv[i], "-master") == 0 && i + 1 < argc) {
+            strncpy(args->master_key_file, argv[++i], MAX_FILENAME - 1);
+            args->master_key_file[MAX_FILENAME - 1] = '\0';
+            DEBUG_PRINT("Master key file set to: %s", args->master_key_file);
+        } else if (strcmp(argv[i], "-master_key") == 0 && i + 1 < argc) {
+            args->provided_master_key = argv[++i];
+            DEBUG_PRINT("Master key provided via command line");
+        } else {
+            break;  // Found the command
+        }
+    }
+
+    if (i >= argc) {
+        print_usage();
+        return 0;
+    }
+
+    // Store the command
+    args->command = argv[i];
+    DEBUG_PRINT("Command: %s", args->command);
+    
+    // Store the key name if the command requires it
+    if (i + 1 < argc && strcmp(args->command, "-list") != 0 && 
+        strcmp(args->command, "-generate_master_key") != 0) {
+        args->key_name = argv[i + 1];
+        DEBUG_PRINT("Key name: %s", args->key_name);
+    }
+
+    // Validate command and arguments
+    if (strcmp(args->command, "-store") == 0 ||
+        strcmp(args->command, "-retrieve") == 0 ||
+        strcmp(args->command, "-generate_key_pair") == 0 ||
+        strcmp(args->command, "-sign") == 0 ||
+        strcmp(args->command, "-verify") == 0 ||
+        strcmp(args->command, "-export_public_key") == 0 ||
+        strcmp(args->command, "-import_public_key") == 0) {
+        if (!args->key_name) {
+            fprintf(stderr, "Error: Key name required for %s command\n", args->command);
+            print_usage();
+            return 0;
+        }
+    } else if (strcmp(args->command, "-list") != 0 && 
+               strcmp(args->command, "-generate_master_key") != 0) {
+        fprintf(stderr, "Error: Unknown command: %s\n", args->command);
+        print_usage();
+        return 0;
+    }
+
+    // Update global file paths
+    update_global_paths(args);
+    
+    DEBUG_PRINT("Command line arguments parsed successfully");
+    return 1;
+}
+
+
 int main(int argc, char *argv[]) {
     fprintf(stderr, "Debug: Starting virtual_hsm\n");
     
