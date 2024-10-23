@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
+// Our imports
+#include "common_defs.h"
+
 #define MAX_FILENAME 256
 #define MAX_NAME_LENGTH 49
 
