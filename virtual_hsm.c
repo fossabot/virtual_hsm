@@ -64,7 +64,7 @@ void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length) {
 
 void handle_errors() {
     unsigned long err = ERR_get_error();
-    char err_msg[256];
+    char err_msg[CHAR_ERR_MSG_ARRAY];
     ERR_error_string_n(err, err_msg, sizeof(err_msg));
     fprintf(stderr, "Debug: OpenSSL Error: %s\n", err_msg);
     ERR_print_errors_fp(stderr);
