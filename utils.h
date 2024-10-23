@@ -1,9 +1,16 @@
+#ifndef UTILS_H
+#define UTILS_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 // Utility Functions
+int hex_to_int(char c);
+void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length);
+void handle_errors(void);
+
 int hex_to_int(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
