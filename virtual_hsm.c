@@ -15,15 +15,7 @@
 #include "common_defs.h"  
 #include "digital_signature.h"
 #include "command_args.h"
-
-typedef struct {
-    char name[MAX_NAME_LENGTH + 1];
-    unsigned char key_data[KEY_SIZE];
-    unsigned char iv[IV_SIZE];
-    unsigned char tag[TAG_SIZE];
-    int encrypted_len;
-    int is_public_key;
-} KeyEntry;
+#include "hsm_shared.h" 
 
 KeyEntry keystore[MAX_KEYS];
 int key_count = 0;
