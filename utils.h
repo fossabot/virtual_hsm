@@ -33,3 +33,5 @@ void handle_errors() {
     ERR_print_errors_fp(stderr);
     exit(1);
 }
+
+#endif // UTILS_H
