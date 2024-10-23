@@ -11,10 +11,8 @@
 #include <openssl/err.h>
 #include <unistd.h>
 
-#define MAX_KEYS 100
-#define KEY_SIZE 32 
-#define IV_SIZE 12  
-#define TAG_SIZE 16 // GCM tag size
+//priority import of our common defines
+#include "common_defs.h"  
 
 typedef struct {
     char name[MAX_NAME_LENGTH + 1];
