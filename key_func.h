@@ -1,3 +1,6 @@
+#ifndef KEY_FUNC_H
+#define KEY_FUNC_H
+
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "Debug: " fmt "\n", ##__VA_ARGS__)
 
 #include <stdio.h>
@@ -11,6 +14,28 @@
 #include "hsm_shared.h"
 #include "utils.h"
 #include "common_defs.h"
+
+// External declarations for global variables
+extern unsigned char master_key[KEY_SIZE];
+extern char master_key_file[MAX_FILENAME];
+extern char keystore_file[MAX_FILENAME];
+extern KeyEntry keystore[MAX_KEYS];
+extern int key_count;
+
+// Function declarations
+void generate_master_key(void);
+void load_master_key(const char *provided_key);
+void save_keystore(void);
+void load_keystore(void);
+int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, 
+                int *ciphertext_len, unsigned char *iv, unsigned char *tag);
+int decrypt_key(const unsigned char *ciphertext, int ciphertext_len,
+                unsigned char *plaintext, const unsigned char *iv,
+                const unsigned char *tag);
+void store_key(const char *name, const unsigned char *key, int is_public_key);
+void store_public_key(const char *name, const unsigned char *key, size_t key_len);
+void retrieve_key(const char *name);
+void list_keys(void);
 
 void generate_master_key() {
     unsigned char new_master_key[KEY_SIZE];
@@ -269,3 +294,5 @@ void list_keys() {
         printf("%s\n", keystore[i].name);
     }
 }
+
+#endif // KEY_FUNC_H
