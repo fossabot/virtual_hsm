@@ -396,7 +396,7 @@ int main(int argc, char *argv[]) {
 void handle_sign_command(const char* key_name) {
     unsigned char *data = NULL;
     size_t data_len = 0;
-    size_t buffer_size = 1024;
+    size_t buffer_size = BUFFER_SIZE;
     
     data = malloc(buffer_size);
     if (!data) {
@@ -405,7 +405,7 @@ void handle_sign_command(const char* key_name) {
     }
 
     while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
-        buffer_size *= 2;
+        buffer_size *= ARRAY_EXPANSION_MULTIPLE;
         unsigned char *temp = realloc(data, buffer_size);
         if (!temp) {
             fprintf(stderr, "Memory reallocation failed\n");
@@ -437,7 +437,7 @@ void handle_verify_command(const char* key_name) {
     unsigned char *data = NULL;
     size_t data_len = 0;
     size_t sig_len = 0;
-    size_t buffer_size = 1024;
+    size_t buffer_size = BUFFER_SIZE;
 
     data = malloc(buffer_size);
     if (!data) {
@@ -446,7 +446,7 @@ void handle_verify_command(const char* key_name) {
     }
 
     while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
-        buffer_size *= 2;
+        buffer_size *= ARRAY_EXPANSION_MULTIPLE;
         unsigned char *temp = realloc(data, buffer_size);
         if (!temp) {
             fprintf(stderr, "Memory reallocation failed\n");
@@ -456,13 +456,13 @@ void handle_verify_command(const char* key_name) {
         data = temp;
     }
 
-    if (data_len < 64) {
+    if (data_len < SIG_LENGTH) {
         fprintf(stderr, "Input data too short\n");
         free(data);
         exit(1);
     }
 
-    sig_len = 64;
+    sig_len = SIG_LENGTH;
     memcpy(signature, data + data_len - sig_len, sig_len);
     data_len -= sig_len;
 
@@ -489,7 +489,7 @@ void handle_export_public_key_command(const char* key_name) {
 }
 
 void handle_import_public_key_command(const char* key_name) {
-    char pem_key[4096];
+    char pem_key[PEM_KEY_CHAR_ARR_SIZE];
     size_t pem_len = fread(pem_key, 1, sizeof(pem_key), stdin);
     pem_key[pem_len] = '\0';
     
