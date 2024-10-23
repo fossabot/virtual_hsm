@@ -15,7 +15,8 @@
 #include "common_defs.h"  
 #include "digital_signature.h"
 #include "command_args.h"
-#include "hsm_shared.h" 
+#include "hsm_shared.h"
+#include "utils.h"
 
 KeyEntry keystore[MAX_KEYS];
 int key_count = 0;
@@ -24,10 +25,14 @@ unsigned char master_key[KEY_SIZE];
 char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
 
-// Function prototypes
+// Function prototypes //
+
+// utils
 void handle_errors(void);
+int hex_to_int(char c);
+void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length);
+
 void generate_master_key(void);
-void load_master_key(const char *provided_key);
 void save_keystore(void);
 void load_keystore(void);
 int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, 
@@ -45,31 +50,6 @@ void handle_verify_command(const char* key_name);
 void handle_export_public_key_command(const char* key_name);
 void handle_import_public_key_command(const char* key_name);
 
-
-
-// Utility Functions
-int hex_to_int(char c) {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return -1;
-}
-
-void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length) {
-    DEBUG_PRINT("Converting hex string to bytes: %s", hex);
-    for (size_t i = 0; i < length; i++) {
-        bytes[i] = (hex_to_int(hex[i*2]) << 4) | hex_to_int(hex[i*2 + 1]);
-    }
-}
-
-void handle_errors() {
-    unsigned long err = ERR_get_error();
-    char err_msg[CHAR_ERR_MSG_ARRAY];
-    ERR_error_string_n(err, err_msg, sizeof(err_msg));
-    fprintf(stderr, "Debug: OpenSSL Error: %s\n", err_msg);
-    ERR_print_errors_fp(stderr);
-    exit(1);
-}
 
 void generate_master_key() {
     unsigned char new_master_key[KEY_SIZE];
