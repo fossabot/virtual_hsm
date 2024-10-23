@@ -45,10 +45,7 @@ void store_key(const char *name, const unsigned char *key, int is_public_key);
 void retrieve_key(const char *name);
 void list_keys(void);
 void store_public_key(const char *name, const unsigned char *key, size_t key_len);
-void handle_sign_command(const char* key_name);
-void handle_verify_command(const char* key_name);
-void handle_export_public_key_command(const char* key_name);
-void handle_import_public_key_command(const char* key_name);
+
 
 // our header funcs
 #include "digital_signature.h"
