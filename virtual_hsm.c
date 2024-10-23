@@ -11,8 +11,10 @@
 #include <openssl/err.h>
 #include <unistd.h>
 
-//priority import of our common defines
+//priority import of our common defines and header funcs
 #include "common_defs.h"  
+#include "digital_signature.h"
+#include "command_args.h"
 
 typedef struct {
     char name[MAX_NAME_LENGTH + 1];
@@ -46,10 +48,12 @@ void retrieve_key(const char *name);
 void list_keys(void);
 void store_public_key(const char *name, const unsigned char *key, size_t key_len);
 
+void handle_sign_command(const char* key_name);
+void handle_verify_command(const char* key_name);
+void handle_export_public_key_command(const char* key_name);
+void handle_import_public_key_command(const char* key_name);
 
-// our header funcs
-#include "digital_signature.h"
-#include "command_args.h"
+
 
 // Utility Functions
 int hex_to_int(char c) {
