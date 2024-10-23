@@ -27,27 +27,7 @@ char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
 
 // Function prototypes //
-
-// utils
-void handle_errors(void);
-int hex_to_int(char c);
-void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length);
-void list_keys(void);
-
-void generate_master_key(void);
-void save_keystore(void);
-void load_keystore(void);
-
-int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, 
-                int *ciphertext_len, unsigned char *iv, unsigned char *tag);
-int decrypt_key(const unsigned char *ciphertext, int ciphertext_len,
-                unsigned char *plaintext, const unsigned char *iv,
-                const unsigned char *tag);
-void store_key(const char *name, const unsigned char *key, int is_public_key);
-void retrieve_key(const char *name);
-void list_keys(void);
-void store_public_key(const char *name, const unsigned char *key, size_t key_len);
-
+void update_global_paths(const CommandLineArgs* args);
 void handle_sign_command(const char* key_name);
 void handle_verify_command(const char* key_name);
 void handle_export_public_key_command(const char* key_name);
