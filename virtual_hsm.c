@@ -32,10 +32,12 @@ char master_key_file[MAX_FILENAME] = "master.key";
 void handle_errors(void);
 int hex_to_int(char c);
 void hex_to_bytes(const char *hex, unsigned char *bytes, size_t length);
+void list_keys(void);
 
 void generate_master_key(void);
 void save_keystore(void);
 void load_keystore(void);
+
 int encrypt_key(const unsigned char *plaintext, unsigned char *ciphertext, 
                 int *ciphertext_len, unsigned char *iv, unsigned char *tag);
 int decrypt_key(const unsigned char *ciphertext, int ciphertext_len,
