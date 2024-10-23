@@ -6,6 +6,8 @@
 #include <openssl/err.h>
 #include <string.h>
 
+#include "hsm_shared.h" 
+
 #define MAX_SIGNATURE_SIZE 256
 #define SHA256_DIGEST_LENGTH 32
 
