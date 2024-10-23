@@ -10,6 +10,7 @@
 
 #include "hsm_shared.h"
 #include "utils.h"
+#include "commond_defs.h"
 
 void generate_master_key() {
     unsigned char new_master_key[KEY_SIZE];
