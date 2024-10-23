@@ -17,5 +17,5 @@
 //Performance
 // how much to increase our array when dynamically resizing
 #define ARRAY_EXPANSION_MULTIPLE 2 
-
+#define CHAR_ERR_MSG_ARRAY 256
 #endif // COMMON_DEFS_H
