@@ -36,17 +36,64 @@ void init_command_line_args(CommandLineArgs* args) {
 
 void print_usage(void) {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] [-master_key <hex_key>] <command> [options]\n");
+    fprintf(stderr, "  ./virtual_hsm [-keystore <keystore_file>] [-master <master_key_file>] [-master_key <hex_key>] <command> [options]\n\n");
+    
+    fprintf(stderr, "Global Options:\n");
+    fprintf(stderr, "  -keystore <file>      Specify custom keystore file (default: keystore.dat)\n");
+    fprintf(stderr, "  -master <file>        Specify custom master key file (default: master.key)\n");
+    fprintf(stderr, "  -master_key <hex>     Provide master key directly as hex string\n\n");
+    
     fprintf(stderr, "Commands:\n");
-    fprintf(stderr, "  -store <key_name>\n");
-    fprintf(stderr, "  -retrieve <key_name>\n");
-    fprintf(stderr, "  -list\n");
-    fprintf(stderr, "  -generate_master_key\n");
-    fprintf(stderr, "  -generate_key_pair <key_name>\n");
-    fprintf(stderr, "  -sign <key_name>\n");
-    fprintf(stderr, "  -verify <key_name>\n");
-    fprintf(stderr, "  -export_public_key <key_name>\n");
-    fprintf(stderr, "  -import_public_key <key_name>\n");
+    fprintf(stderr, "  Key Management:\n");
+    fprintf(stderr, "    -store <key_name>           Store a symmetric key (read hex from stdin)\n");
+    fprintf(stderr, "                                Example: echo \"0123456789abcdef\" | ./virtual_hsm -store mykey\n\n");
+    
+    fprintf(stderr, "    -retrieve <key_name>        Retrieve a key's value in hex format\n");
+    fprintf(stderr, "                                Example: ./virtual_hsm -retrieve mykey\n\n");
+    
+    fprintf(stderr, "    -list                       List all stored key names\n");
+    fprintf(stderr, "                                Example: ./virtual_hsm -list\n\n");
+    
+    fprintf(stderr, "  Master Key Operations:\n");
+    fprintf(stderr, "    -generate_master_key        Generate a new master key\n");
+    fprintf(stderr, "                                Example: ./virtual_hsm -generate_master_key\n\n");
+    
+    fprintf(stderr, "  Asymmetric Key Operations:\n");
+    fprintf(stderr, "    -generate_key_pair <name>   Generate ED25519 key pair\n");
+    fprintf(stderr, "                                Creates both <name> (private) and <name>_public\n");
+    fprintf(stderr, "                                Example: ./virtual_hsm -generate_key_pair signing_key\n\n");
+    
+    fprintf(stderr, "    -sign <key_name>           Sign data using private key (data from stdin)\n");
+    fprintf(stderr, "                                Examples:\n");
+    fprintf(stderr, "                                  echo -n \"hello\" | ./virtual_hsm -sign signing_key\n");
+    fprintf(stderr, "                                  cat file.txt | ./virtual_hsm -sign signing_key > signature.bin\n\n");
+    
+    fprintf(stderr, "    -verify <key_name>         Verify signature (data + signature from stdin)\n");
+    fprintf(stderr, "                                Example: cat file.txt signature.bin | \\\n");
+    fprintf(stderr, "                                        ./virtual_hsm -verify signing_key_public\n\n");
+    
+    fprintf(stderr, "    -export_public_key <name>   Export public key in PEM format\n");
+    fprintf(stderr, "                                Example: ./virtual_hsm -export_public_key signing_key_public\n\n");
+    
+    fprintf(stderr, "    -import_public_key <name>   Import public key from PEM format (read from stdin)\n");
+    fprintf(stderr, "                                Example: cat public.pem | ./virtual_hsm -import_public_key new_key\n\n");
+    
+    fprintf(stderr, "Notes:\n");
+    fprintf(stderr, "  - All keys are stored encrypted using the master key\n");
+    fprintf(stderr, "  - Public keys from key pairs are stored with '_public' suffix\n");
+    fprintf(stderr, "  - Max key name length is %d characters\n", MAX_NAME_LENGTH);
+    fprintf(stderr, "  - Data for signing/verification is read from stdin\n");
+    fprintf(stderr, "  - Signatures are output in binary format\n\n");
+    
+    fprintf(stderr, "Example Workflow for Digital Signatures:\n");
+    fprintf(stderr, "  1. Generate a key pair:\n");
+    fprintf(stderr, "     ./virtual_hsm -generate_key_pair mykey\n\n");
+    
+    fprintf(stderr, "  2. Sign a file:\n");
+    fprintf(stderr, "     cat myfile.txt | ./virtual_hsm -sign mykey > signature.bin\n\n");
+    
+    fprintf(stderr, "  3. Verify the signature:\n");
+    fprintf(stderr, "     cat myfile.txt signature.bin | ./virtual_hsm -verify mykey_public\n");
 }
 
 int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
