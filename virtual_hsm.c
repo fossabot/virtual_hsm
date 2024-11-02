@@ -106,21 +106,85 @@ void handle_sign_command(const char* key_name) {
     size_t data_len = 0;
     size_t buffer_size = BUFFER_SIZE;
     
-    data = malloc(buffer_size);
-    if (!data) {
-        fprintf(stderr, "Memory allocation failed\n");
+    // Check if stdin is empty or at EOF
+    if (feof(stdin)) {
+        fprintf(stderr, "Error: No input data provided for signing\n");
         exit(1);
     }
 
+    data = malloc(buffer_size);
+    if (!data) {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        exit(1);
+    }
+
+    // Set stdin to non-blocking mode
+    #ifdef _WIN32
+        // Windows-specific non-blocking stdin
+        int mode = _setmode(_fileno(stdin), _O_BINARY);
+        if (mode == -1) {
+            fprintf(stderr, "Error: Could not set binary mode\n");
+            free(data);
+            exit(1);
+        }
+    #else
+        // Unix-specific non-blocking stdin
+        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        if (flags == -1) {
+            fprintf(stderr, "Error: Could not get file status flags\n");
+            free(data);
+            exit(1);
+        }
+        if (fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK) == -1) {
+            fprintf(stderr, "Error: Could not set non-blocking mode\n");
+            free(data);
+            exit(1);
+        }
+    #endif
+
+    // Try to read with timeout
+    struct timeval timeout;
+    timeout.tv_sec = 1;  // 1 second timeout
+    timeout.tv_usec = 0;
+    
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+
+    int ready = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout);
+    if (ready <= 0) {
+        fprintf(stderr, "Error: No input data provided for signing within timeout\n");
+        free(data);
+        exit(1);
+    }
+
+    // Reset stdin to blocking mode
+    #ifdef _WIN32
+        mode = _setmode(_fileno(stdin), _O_TEXT);
+    #else
+        if (fcntl(STDIN_FILENO, F_SETFL, flags) == -1) {
+            fprintf(stderr, "Error: Could not reset blocking mode\n");
+            free(data);
+            exit(1);
+        }
+    #endif
+
+    // Read the actual data
     while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
         buffer_size *= ARRAY_EXPANSION_MULTIPLE;
         unsigned char *temp = realloc(data, buffer_size);
         if (!temp) {
-            fprintf(stderr, "Memory reallocation failed\n");
+            fprintf(stderr, "Error: Memory reallocation failed\n");
             free(data);
             exit(1);
         }
         data = temp;
+    }
+
+    if (data_len == 0) {
+        fprintf(stderr, "Error: No data read from input\n");
+        free(data);
+        exit(1);
     }
 
     DEBUG_PRINT("Read data length: %zu", data_len);
@@ -132,7 +196,7 @@ void handle_sign_command(const char* key_name) {
         DEBUG_PRINT("Signature created, length: %zu", sig_len);
         fwrite(signature, 1, sig_len, stdout);
     } else {
-        fprintf(stderr, "Signing failed\n");
+        fprintf(stderr, "Error: Signing failed\n");
         free(data);
         exit(1);
     }
@@ -147,17 +211,25 @@ void handle_verify_command(const char* key_name) {
     size_t sig_len = 0;
     size_t buffer_size = BUFFER_SIZE;
 
-    data = malloc(buffer_size);
-    if (!data) {
-        fprintf(stderr, "Memory allocation failed\n");
+    // Check if stdin is empty or at EOF
+    if (feof(stdin)) {
+        fprintf(stderr, "Error: No input data provided for verification\n");
         exit(1);
     }
 
+    data = malloc(buffer_size);
+    if (!data) {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        exit(1);
+    }
+
+    //Add add'l blocking code?
+    
     while ((data_len += fread(data + data_len, 1, buffer_size - data_len, stdin)) == buffer_size) {
         buffer_size *= ARRAY_EXPANSION_MULTIPLE;
         unsigned char *temp = realloc(data, buffer_size);
         if (!temp) {
-            fprintf(stderr, "Memory reallocation failed\n");
+            fprintf(stderr, "Error: Memory reallocation failed\n");
             free(data);
             exit(1);
         }
@@ -165,7 +237,7 @@ void handle_verify_command(const char* key_name) {
     }
 
     if (data_len < SIG_LENGTH) {
-        fprintf(stderr, "Input data too short\n");
+        fprintf(stderr, "Error: Input data too short or empty\n");
         free(data);
         exit(1);
     }
@@ -177,7 +249,7 @@ void handle_verify_command(const char* key_name) {
     if (verify_signature(key_name, data, data_len, signature, sig_len)) {
         printf("Signature verified\n");
     } else {
-        fprintf(stderr, "Signature verification failed\n");
+        fprintf(stderr, "Error: Signature verification failed\n");
         free(data);
         exit(1);
     }
