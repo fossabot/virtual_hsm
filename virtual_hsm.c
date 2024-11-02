@@ -11,6 +11,14 @@
 #include <openssl/err.h>
 #include <unistd.h>
 
+#include <fcntl.h>
+#include <sys/select.h>
+
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 //priority import of our common defines and header funcs
 #include "common_defs.h"  
 #include "digital_signature.h"
