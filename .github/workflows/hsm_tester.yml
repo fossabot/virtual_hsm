@@ -136,45 +136,44 @@ jobs:
       - name: Install Windows OpenSSL dependencies
         if: contains(matrix.target, 'windows')
         run: |
+          # Create temporary working directory
+          mkdir openssl_setup
+          cd openssl_setup
+
           # Download and extract OpenSSL
           wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
           unzip openssl-3.4.0.zip
-          
-          # Function to setup OpenSSL for a specific architecture
-          setup_openssl() {
-            local arch=$1
-            local include_dir=$2
-            local lib_dir=$3
-            
-            echo "Setting up OpenSSL for $arch"
-            
-            # Create necessary directories
-            sudo mkdir -p "$include_dir/openssl"
-            sudo mkdir -p "$lib_dir"
-            
-            # Copy include files
-            sudo cp -r "./$arch/include/"* "$include_dir/"
-            
-            # Convert .lib files to .a format and ensure proper naming
-            if [ -f "./$arch/lib/libcrypto.lib" ]; then
-              # Create a script to convert Windows .lib to Unix .a format
-              echo "EXPORTS" > export_crypto.def
-              i686-w64-mingw32-dlltool --dllname libcrypto.dll --def export_crypto.def --output-lib "$lib_dir/libcrypto.dll.a"
-              
-              echo "EXPORTS" > export_ssl.def
-              i686-w64-mingw32-dlltool --dllname libssl.dll --def export_ssl.def --output-lib "$lib_dir/libssl.dll.a"
-              
-              # Copy the original static libraries
-              sudo cp "./$arch/lib/libcrypto.lib" "$lib_dir/libcrypto.a"
-              sudo cp "./$arch/lib/libssl.lib" "$lib_dir/libssl.a"
-            fi
-          }
-          
+
+          # Set up architecture-specific paths
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
-            setup_openssl "x86" "/usr/i686-w64-mingw32/include" "/usr/i686-w64-mingw32/lib"
+            MINGW_PATH="/usr/i686-w64-mingw32"
+            OPENSSL_ARCH="x86"
           else
-            setup_openssl "x64" "/usr/x86_64-w64-mingw32/include" "/usr/x86_64-w64-mingw32/lib"
+            MINGW_PATH="/usr/x86_64-w64-mingw32"
+            OPENSSL_ARCH="x64"
           fi
+
+          # Create directories with proper permissions
+          sudo mkdir -p $MINGW_PATH/include/openssl
+          sudo mkdir -p $MINGW_PATH/lib/openssl
+          
+          # Copy OpenSSL headers and libraries with proper permissions
+          sudo cp -r ./$OPENSSL_ARCH/include/openssl/* $MINGW_PATH/include/openssl/
+          sudo cp ./$OPENSSL_ARCH/lib/libcrypto.lib $MINGW_PATH/lib/libcrypto.a
+          sudo cp ./$OPENSSL_ARCH/lib/libssl.lib $MINGW_PATH/lib/libssl.a
+          
+          # Copy static libraries and DLLs
+          sudo cp ./$OPENSSL_ARCH/bin/libcrypto-3.dll $MINGW_PATH/lib/
+          sudo cp ./$OPENSSL_ARCH/bin/libssl-3.dll $MINGW_PATH/lib/
+          
+          # Set proper permissions
+          sudo chmod 644 $MINGW_PATH/lib/*.a
+          sudo chmod 644 $MINGW_PATH/lib/*.dll
+          sudo chmod -R 644 $MINGW_PATH/include/openssl/*
+          
+          # Clean up
+          cd ..
+          rm -rf openssl_setup
 
       - name: Create Windows compatibility header
         if: contains(matrix.target, 'windows')
@@ -195,18 +194,11 @@ jobs:
             # Set architecture-specific paths
             if [ "${{ matrix.target }}" = "windows-x86" ]; then
               MINGW_PATH="/usr/i686-w64-mingw32"
-              ARCH_PREFIX="i686-w64-mingw32"
             else
               MINGW_PATH="/usr/x86_64-w64-mingw32"
-              ARCH_PREFIX="x86_64-w64-mingw32"
             fi
             
-            # Ensure all necessary static libraries are present
-            echo "Checking for required libraries..."
-            ls -l $MINGW_PATH/lib/libcrypto.a
-            ls -l $MINGW_PATH/lib/libssl.a
-            
-            # Windows compilation with enhanced static linking
+            # Windows compilation with complete static linking
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
               -I. \
@@ -215,10 +207,9 @@ jobs:
               -static \
               -static-libgcc \
               -static-libstdc++ \
-              -Wl,-Bstatic,--whole-archive \
+              -Wl,-Bstatic \
               -lcrypto \
               -lssl \
-              -Wl,--no-whole-archive \
               -lws2_32 \
               -lgdi32 \
               -lcrypt32 \
@@ -229,10 +220,6 @@ jobs:
               -DOPENSSL_STATIC \
               -DOPENSSL_NO_DYNAMIC_ENGINE \
               -g -Wall -Wextra
-              
-            # Verify static linking
-            echo "Checking binary dependencies..."
-            $ARCH_PREFIX-objdump -p ${{ matrix.output }} | grep "DLL"
           else
             # Linux compilation (unchanged)
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
