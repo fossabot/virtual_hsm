@@ -190,44 +190,47 @@ jobs:
 
       - name: Compile for ${{ matrix.target }}
         run: |
-          if [[ "${{ matrix.target }}" == windows-* ]]; then
-            # Set architecture-specific paths
-            if [ "${{ matrix.target }}" = "windows-x86" ]; then
-              MINGW_PATH="/usr/i686-w64-mingw32"
-            else
-              MINGW_PATH="/usr/x86_64-w64-mingw32"
-            fi
-            
-            # Windows compilation with complete static linking
-            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
-              ${{ matrix.defines }} \
-              -I. \
-              -I$MINGW_PATH/include \
-              -L$MINGW_PATH/lib \
-              -static \
-              -static-libgcc \
-              -static-libstdc++ \
-              -Wl,-Bstatic \
-              -lcrypto \
-              -lssl \
-              -lws2_32 \
-              -lgdi32 \
-              -lcrypt32 \
-              -luser32 \
-              -ladvapi32 \
-              -lkernel32 \
-              -lbcrypt \
-              -DOPENSSL_STATIC \
-              -DOPENSSL_NO_DYNAMIC_ENGINE \
-              -g -Wall -Wextra
-          else
-            # Linux compilation (unchanged)
-            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
-              -static -static-libgcc -static-libstdc++ \
-              -lcrypto -lssl \
-              ${{ matrix.defines }} \
-              -g -Wall -Wextra
-          fi
+              if [[ "${{ matrix.target }}" == windows-* ]]; then
+                # Set architecture-specific paths
+                if [ "${{ matrix.target }}" = "windows-x86" ]; then
+                  MINGW_PATH="/usr/i686-w64-mingw32"
+                else
+                  MINGW_PATH="/usr/x86_64-w64-mingw32"
+                fi
+                
+                # Windows compilation with complete static linking
+                ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+                  ${{ matrix.defines }} \
+                  -I. \
+                  -I$MINGW_PATH/include \
+                  -L$MINGW_PATH/lib \
+                  -static \
+                  -static-libgcc \
+                  -static-libstdc++ \
+                  -Wl,-Bstatic,--whole-archive \
+                  -lssl \
+                  -lcrypto \
+                  -Wl,--no-whole-archive \
+                  -lws2_32 \
+                  -lgdi32 \
+                  -lcrypt32 \
+                  -luser32 \
+                  -ladvapi32 \
+                  -lkernel32 \
+                  -lbcrypt \
+                  -DOPENSSL_STATIC \
+                  -DOPENSSL_NO_DYNAMIC_ENGINE \
+                  -DOPENSSL_NO_ASYNC \
+                  -g -Wall -Wextra
+              else
+                # Linux compilation (unchanged)
+                ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+                  -static -static-libgcc -static-libstdc++ \
+                  -lcrypto -lssl \
+                  ${{ matrix.defines }} \
+                  -g -Wall -Wextra
+              fi
+
 
       - name: Verify binary
         run: |
