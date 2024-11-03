@@ -136,8 +136,9 @@ jobs:
       if: contains(matrix.target, 'windows')
       run: |
         # Download pre-built OpenSSL for Windows
-        wget https://mirror.firedaemon.com/OpenSSL/openssl-3.1.4.zip
-        unzip openssl-3.1.4.zip
+        # Select from recommended source: https://wiki.openssl.org/index.php/Binaries
+        wget https://www.firedaemon.com/download-firedaemon-openssl-3-4-zip
+        unzip openssl-3.4.0.zip
         sudo mkdir -p /usr/i686-w64-mingw32/include/
         sudo mkdir -p /usr/x86_64-w64-mingw32/include/
         if [ "${{ matrix.target }}" = "windows-x86" ]; then
