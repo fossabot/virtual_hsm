@@ -150,31 +150,21 @@ jobs:
             OPENSSL_ARCH="x86"
             CRYPTO_DLL="libcrypto-3.dll"
             SSL_DLL="libssl-3.dll"
-            LEGACY_DLL="legacy.dll"
           else
             MINGW_PATH="/usr/x86_64-w64-mingw32"
             OPENSSL_ARCH="x64"
             CRYPTO_DLL="libcrypto-3-x64.dll"
             SSL_DLL="libssl-3-x64.dll"
-            LEGACY_DLL="legacy-x64.dll"
           fi
 
           # Create directories with proper permissions
           sudo mkdir -p $MINGW_PATH/include/openssl
-          sudo mkdir -p $MINGW_PATH/lib/openssl
-          sudo mkdir -p $MINGW_PATH/lib/engines-3
-          sudo mkdir -p $MINGW_PATH/lib/ossl-modules
+          sudo mkdir -p $MINGW_PATH/lib
           
           # Copy OpenSSL headers and libraries with proper permissions
           sudo cp -r ./$OPENSSL_ARCH/include/openssl/* $MINGW_PATH/include/openssl/
           sudo cp ./$OPENSSL_ARCH/lib/libcrypto.lib $MINGW_PATH/lib/libcrypto.a
           sudo cp ./$OPENSSL_ARCH/lib/libssl.lib $MINGW_PATH/lib/libssl.a
-          
-          # Copy engine DLLs
-          sudo cp ./$OPENSSL_ARCH/lib/engines-3/*.dll $MINGW_PATH/lib/engines-3/
-          
-          # Copy module DLLs
-          sudo cp ./$OPENSSL_ARCH/lib/ossl-modules/$LEGACY_DLL $MINGW_PATH/lib/ossl-modules/
           
           # Copy main DLLs
           sudo cp ./$OPENSSL_ARCH/bin/$CRYPTO_DLL $MINGW_PATH/lib/
@@ -183,16 +173,12 @@ jobs:
           # Set proper permissions
           sudo chmod 644 $MINGW_PATH/lib/*.a
           sudo chmod 644 $MINGW_PATH/lib/*.dll
-          sudo chmod 644 $MINGW_PATH/lib/engines-3/*.dll
-          sudo chmod 644 $MINGW_PATH/lib/ossl-modules/*.dll
           sudo chmod -R 644 $MINGW_PATH/include/openssl/*
           
           # Verify files were copied correctly
           echo "Verifying copied files..."
           ls -l $MINGW_PATH/lib/$CRYPTO_DLL
           ls -l $MINGW_PATH/lib/$SSL_DLL
-          ls -l $MINGW_PATH/lib/engines-3/
-          ls -l $MINGW_PATH/lib/ossl-modules/
           
           # Clean up
           cd ..
