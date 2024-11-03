@@ -142,11 +142,11 @@ jobs:
         sudo mkdir -p /usr/i686-w64-mingw32/include/
         sudo mkdir -p /usr/x86_64-w64-mingw32/include/
         if [ "${{ matrix.target }}" = "windows-x86" ]; then
-          sudo cp -r openssl-3.1.4/include/* /usr/i686-w64-mingw32/include/
-          sudo cp -r openssl-3.1.4/lib/* /usr/i686-w64-mingw32/lib/
+          sudo cp -r openssl-3.4.0/x86/include/* /usr/i686-w64-mingw32/include/
+          sudo cp -r openssl-3.4.0/x86/lib/* /usr/i686-w64-mingw32/lib/
         else
-          sudo cp -r openssl-3.1.4/include/* /usr/x86_64-w64-mingw32/include/
-          sudo cp -r openssl-3.1.4/lib/* /usr/x86_64-w64-mingw32/lib/
+          sudo cp -r openssl-3.4.0/x64/include/* /usr/x86_64-w64-mingw32/include/
+          sudo cp -r openssl-3.4.0/x64/lib/* /usr/x86_64-w64-mingw32/lib/
         fi
 
     - name: Compile for ${{ matrix.target }}
