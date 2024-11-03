@@ -12,11 +12,16 @@
 #include <unistd.h>
 
 #include <fcntl.h>
-#include <sys/select.h>
 
 #ifdef _WIN32
-#include <io.h>
-#include <fcntl.h>
+    #include <winsock2.h>
+    #include <windows.h>
+    #include <io.h>
+    #include <fcntl.h>
+#else
+    #include <sys/select.h>
+    #include <sys/time.h>
+    #include <sys/types.h>
 #endif
 
 //priority import of our common defines and header funcs
