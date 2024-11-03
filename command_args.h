@@ -64,13 +64,24 @@ void print_usage(void) {
     fprintf(stderr, "                                Example: ./virtual_hsm -generate_key_pair signing_key\n\n");
     
     fprintf(stderr, "    -sign <key_name>           Sign data using private key (data from stdin)\n");
+    fprintf(stderr, "                                IMPORTANT: The signature is output to stdout and must be\n");
+    fprintf(stderr, "                                saved to a file for later verification.\n");
     fprintf(stderr, "                                Examples:\n");
-    fprintf(stderr, "                                  echo -n \"hello\" | ./virtual_hsm -sign signing_key\n");
-    fprintf(stderr, "                                  cat file.txt | ./virtual_hsm -sign signing_key > signature.bin\n\n");
+    fprintf(stderr, "                                  # Sign data and save signature:\n");
+    fprintf(stderr, "                                  echo -n \"hello\" | ./virtual_hsm -sign signing_key > signature.bin\n");
+    fprintf(stderr, "                                  # Sign a file and save signature:\n");
+    fprintf(stderr, "                                  cat file.txt | ./virtual_hsm -sign signing_key > signature.bin\n");
+    fprintf(stderr, "                                  # Without saving signature (NOT RECOMMENDED):\n");
+    fprintf(stderr, "                                  echo -n \"hello\" | ./virtual_hsm -sign signing_key\n\n");
     
-    fprintf(stderr, "    -verify <key_name>         Verify signature (data + signature from stdin)\n");
-    fprintf(stderr, "                                Example: cat file.txt signature.bin | \\\n");
-    fprintf(stderr, "                                        ./virtual_hsm -verify signing_key_public\n\n");
+    fprintf(stderr, "    -verify <key_name>         Verify signature (requires both data AND signature)\n");
+    fprintf(stderr, "                                The input must contain both the original data AND\n");
+    fprintf(stderr, "                                its signature concatenated together.\n");
+    fprintf(stderr, "                                Examples:\n");
+    fprintf(stderr, "                                  # Verify file and its signature:\n");
+    fprintf(stderr, "                                  cat file.txt signature.bin | ./virtual_hsm -verify signing_key_public\n");
+    fprintf(stderr, "                                  # Verify string data with its signature:\n");
+    fprintf(stderr, "                                  (echo -n \"hello\"; cat signature.bin) | ./virtual_hsm -verify signing_key_public\n\n");
     
     fprintf(stderr, "    -export_public_key <name>   Export public key in PEM format\n");
     fprintf(stderr, "                                Example: ./virtual_hsm -export_public_key signing_key_public\n\n");
@@ -82,18 +93,28 @@ void print_usage(void) {
     fprintf(stderr, "  - All keys are stored encrypted using the master key\n");
     fprintf(stderr, "  - Public keys from key pairs are stored with '_public' suffix\n");
     fprintf(stderr, "  - Max key name length is %d characters\n", MAX_NAME_LENGTH);
-    fprintf(stderr, "  - Data for signing/verification is read from stdin\n");
-    fprintf(stderr, "  - Signatures are output in binary format\n\n");
+    fprintf(stderr, "  - When signing data:\n");
+    fprintf(stderr, "    * The signature is output in binary format to stdout\n");
+    fprintf(stderr, "    * You MUST save the signature to verify it later (use > signature.bin)\n");
+    fprintf(stderr, "    * The signature file is required for verification\n");
+    fprintf(stderr, "  - When verifying:\n");
+    fprintf(stderr, "    * You must provide both the original data AND its signature\n");
+    fprintf(stderr, "    * The data must come first, followed by the signature\n");
+    fprintf(stderr, "    * Use cat to concatenate them together as shown in examples\n\n");
     
-    fprintf(stderr, "Example Workflow for Digital Signatures:\n");
+    fprintf(stderr, "Complete Example Workflow for Digital Signatures:\n");
     fprintf(stderr, "  1. Generate a key pair:\n");
     fprintf(stderr, "     ./virtual_hsm -generate_key_pair mykey\n\n");
     
-    fprintf(stderr, "  2. Sign a file:\n");
+    fprintf(stderr, "  2. Sign a file (MUST save the signature):\n");
     fprintf(stderr, "     cat myfile.txt | ./virtual_hsm -sign mykey > signature.bin\n\n");
     
-    fprintf(stderr, "  3. Verify the signature:\n");
-    fprintf(stderr, "     cat myfile.txt signature.bin | ./virtual_hsm -verify mykey_public\n");
+    fprintf(stderr, "  3. Verify the file with its signature:\n");
+    fprintf(stderr, "     cat myfile.txt signature.bin | ./virtual_hsm -verify mykey_public\n\n");
+    
+    fprintf(stderr, "  NOTE: Running just './virtual_hsm -sign mykey' without saving the signature\n");
+    fprintf(stderr, "        will output the binary signature to the terminal, making it unusable\n");
+    fprintf(stderr, "        for later verification. Always save signatures to a file!\n");
 }
 
 int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
