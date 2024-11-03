@@ -140,15 +140,32 @@ jobs:
         run: |
           wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
           unzip openssl-3.4.0.zip
-          sudo mkdir -p /usr/i686-w64-mingw32/include/
-          sudo mkdir -p /usr/x86_64-w64-mingw32/include/
+          
+          # Debug: List contents of the extracted zip
+          echo "Listing extracted contents:"
+          ls -R
+          
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
-            sudo cp -r x86/include/* /usr/i686-w64-mingw32/include/
-            sudo cp -r x86/lib/* /usr/i686-w64-mingw32/lib/
+            # Copy files for x86
+            sudo mkdir -p /usr/i686-w64-mingw32/include/openssl
+            sudo mkdir -p /usr/i686-w64-mingw32/lib
+            sudo cp -r x86/include/openssl/* /usr/i686-w64-mingw32/include/openssl/
+            sudo cp x86/lib/libcrypto.lib /usr/i686-w64-mingw32/lib/libcrypto.a
+            sudo cp x86/lib/libssl.lib /usr/i686-w64-mingw32/lib/libssl.a
           else
-            sudo cp -r x64/include/* /usr/x86_64-w64-mingw32/include/
-            sudo cp -r x64/lib/* /usr/x86_64-w64-mingw32/lib/
+            # Copy files for x64
+            sudo mkdir -p /usr/x86_64-w64-mingw32/include/openssl
+            sudo mkdir -p /usr/x86_64-w64-mingw32/lib
+            sudo cp -r x64/include/openssl/* /usr/x86_64-w64-mingw32/include/openssl/
+            sudo cp x64/lib/libcrypto.lib /usr/x86_64-w64-mingw32/lib/libcrypto.a
+            sudo cp x64/lib/libssl.lib /usr/x86_64-w64-mingw32/lib/libssl.a
           fi
+          
+          # Debug: List the target directories
+          echo "Listing target include directory:"
+          ls -la /usr/i686-w64-mingw32/include/openssl/
+          echo "Listing target lib directory:"
+          ls -la /usr/i686-w64-mingw32/lib/
 
       - name: Create Windows compatibility header
         if: contains(matrix.target, 'windows')
@@ -174,6 +191,7 @@ jobs:
                 -L/usr/i686-w64-mingw32/lib \
                 -lcrypto -lssl -lws2_32 \
                 -static -static-libgcc -static-libstdc++ \
+                -Wl,-Bstatic -lcrypto -lssl -Wl,-Bdynamic -lws2_32 \
                 -g -Wall -Wextra
             else
               ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
@@ -183,6 +201,7 @@ jobs:
                 -L/usr/x86_64-w64-mingw32/lib \
                 -lcrypto -lssl -lws2_32 \
                 -static -static-libgcc -static-libstdc++ \
+                -Wl,-Bstatic -lcrypto -lssl -Wl,-Bdynamic -lws2_32 \
                 -g -Wall -Wextra
             fi
           else
