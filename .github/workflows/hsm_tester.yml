@@ -106,35 +106,35 @@ jobs:
         export ACTION_KEY=""
         export APP_SEC_KEY=""
 
-  cross-compile:
-      needs: build-and-test
-      runs-on: ubuntu-latest
-      strategy:
-        matrix:
-          target: [linux-x86_64, windows-x86, windows-x86_64]
-          include:
-            - target: linux-x86_64
-              cc: gcc
-              output: virtual_hsm_linux_x86_64
-              defines: ""
-            - target: windows-x86
-              cc: i686-w64-mingw32-gcc
-              output: virtual_hsm_windows_x86.exe
-              defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
-            - target: windows-x86_64
-              cc: x86_64-w64-mingw32-gcc
-              output: virtual_hsm_windows_x86_64.exe
-              defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
-      steps:
+ cross-compile:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [linux-x86_64, windows-x86, windows-x86_64]
+        include:
+          - target: linux-x86_64
+            cc: gcc
+            output: virtual_hsm_linux_x86_64
+            defines: ""
+          - target: windows-x86
+            cc: i686-w64-mingw32-gcc
+            output: virtual_hsm_windows_x86.exe
+            defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
+          - target: windows-x86_64
+            cc: x86_64-w64-mingw32-gcc
+            output: virtual_hsm_windows_x86_64.exe
+            defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
+    steps:
       - uses: actions/checkout@v4
-  
+
       - name: Install dependencies 
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential
           sudo apt-get install -y mingw-w64
           sudo apt-get install -y libssl-dev
-  
+
       - name: Install Windows OpenSSL dependencies
         if: contains(matrix.target, 'windows')
         run: |
@@ -149,7 +149,7 @@ jobs:
             sudo cp -r x64/include/* /usr/x86_64-w64-mingw32/include/
             sudo cp -r x64/lib/* /usr/x86_64-w64-mingw32/lib/
           fi
-  
+
       - name: Create Windows compatibility header
         if: contains(matrix.target, 'windows')
         run: |
@@ -162,7 +162,7 @@ jobs:
           #include <sys/select.h>
           #endif
           EOL
-  
+
       - name: Compile for ${{ matrix.target }}
         run: |
           if [[ "${{ matrix.target }}" == windows-* ]]; then
