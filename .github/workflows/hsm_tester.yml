@@ -106,90 +106,90 @@ jobs:
         export ACTION_KEY=""
         export APP_SEC_KEY=""
 
-cross-compile:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [linux-x86_64, windows-x86, windows-x86_64]
-        include:
-          - target: linux-x86_64
-            cc: gcc
-            output: virtual_hsm_linux_x86_64
-            defines: ""
-          - target: windows-x86
-            cc: i686-w64-mingw32-gcc
-            output: virtual_hsm_windows_x86.exe
-            defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
-          - target: windows-x86_64
-            cc: x86_64-w64-mingw32-gcc
-            output: virtual_hsm_windows_x86_64.exe
-            defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install dependencies 
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential
-        sudo apt-get install -y mingw-w64
-        sudo apt-get install -y libssl-dev
-
-    - name: Install Windows OpenSSL dependencies
-      if: contains(matrix.target, 'windows')
-      run: |
-        wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
-        unzip openssl-3.4.0.zip
-        sudo mkdir -p /usr/i686-w64-mingw32/include/
-        sudo mkdir -p /usr/x86_64-w64-mingw32/include/
-        if [ "${{ matrix.target }}" = "windows-x86" ]; then
-          sudo cp -r x86/include/* /usr/i686-w64-mingw32/include/
-          sudo cp -r x86/lib/* /usr/i686-w64-mingw32/lib/
-        else
-          sudo cp -r x64/include/* /usr/x86_64-w64-mingw32/include/
-          sudo cp -r x64/lib/* /usr/x86_64-w64-mingw32/lib/
-        fi
-
-    - name: Create Windows compatibility header
-      if: contains(matrix.target, 'windows')
-      run: |
-        cat > win32_compat.h << 'EOL'
-        #ifdef _WIN32
-        #include <winsock2.h>
-        #include <windows.h>
-        #include <ws2tcpip.h>
-        #else
-        #include <sys/select.h>
-        #endif
-        EOL
-
-    - name: Compile for ${{ matrix.target }}
-      run: |
-        if [[ "${{ matrix.target }}" == windows-* ]]; then
+  cross-compile:
+      needs: build-and-test
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          target: [linux-x86_64, windows-x86, windows-x86_64]
+          include:
+            - target: linux-x86_64
+              cc: gcc
+              output: virtual_hsm_linux_x86_64
+              defines: ""
+            - target: windows-x86
+              cc: i686-w64-mingw32-gcc
+              output: virtual_hsm_windows_x86.exe
+              defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
+            - target: windows-x86_64
+              cc: x86_64-w64-mingw32-gcc
+              output: virtual_hsm_windows_x86_64.exe
+              defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
+      steps:
+      - uses: actions/checkout@v4
+  
+      - name: Install dependencies 
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          sudo apt-get install -y mingw-w64
+          sudo apt-get install -y libssl-dev
+  
+      - name: Install Windows OpenSSL dependencies
+        if: contains(matrix.target, 'windows')
+        run: |
+          wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
+          unzip openssl-3.4.0.zip
+          sudo mkdir -p /usr/i686-w64-mingw32/include/
+          sudo mkdir -p /usr/x86_64-w64-mingw32/include/
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
-            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
-              ${{ matrix.defines }} \
-              -I. \
-              -I/usr/i686-w64-mingw32/include \
-              -L/usr/i686-w64-mingw32/lib \
-              -lcrypto -lssl -lws2_32 \
-              -static -static-libgcc -static-libstdc++ \
-              -g -Wall -Wextra
+            sudo cp -r x86/include/* /usr/i686-w64-mingw32/include/
+            sudo cp -r x86/lib/* /usr/i686-w64-mingw32/lib/
           else
-            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+            sudo cp -r x64/include/* /usr/x86_64-w64-mingw32/include/
+            sudo cp -r x64/lib/* /usr/x86_64-w64-mingw32/lib/
+          fi
+  
+      - name: Create Windows compatibility header
+        if: contains(matrix.target, 'windows')
+        run: |
+          cat > win32_compat.h << 'EOL'
+          #ifdef _WIN32
+          #include <winsock2.h>
+          #include <windows.h>
+          #include <ws2tcpip.h>
+          #else
+          #include <sys/select.h>
+          #endif
+          EOL
+  
+      - name: Compile for ${{ matrix.target }}
+        run: |
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            if [ "${{ matrix.target }}" = "windows-x86" ]; then
+              ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+                ${{ matrix.defines }} \
+                -I. \
+                -I/usr/i686-w64-mingw32/include \
+                -L/usr/i686-w64-mingw32/lib \
+                -lcrypto -lssl -lws2_32 \
+                -static -static-libgcc -static-libstdc++ \
+                -g -Wall -Wextra
+            else
+              ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+                ${{ matrix.defines }} \
+                -I. \
+                -I/usr/x86_64-w64-mingw32/include \
+                -L/usr/x86_64-w64-mingw32/lib \
+                -lcrypto -lssl -lws2_32 \
+                -static -static-libgcc -static-libstdc++ \
+                -g -Wall -Wextra
+            fi
+          else
+            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c -lcrypto -lssl \
               ${{ matrix.defines }} \
-              -I. \
-              -I/usr/x86_64-w64-mingw32/include \
-              -L/usr/x86_64-w64-mingw32/lib \
-              -lcrypto -lssl -lws2_32 \
-              -static -static-libgcc -static-libstdc++ \
               -g -Wall -Wextra
           fi
-        else
-          ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c -lcrypto -lssl \
-            ${{ matrix.defines }} \
-            -g -Wall -Wextra
-        fi
 
     - name: Check for changes and move binary
       run: |
