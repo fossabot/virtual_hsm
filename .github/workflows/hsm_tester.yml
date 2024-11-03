@@ -153,9 +153,21 @@ jobs:
     - name: Compile for ${{ matrix.target }}
       run: |
         if [[ "${{ matrix.target }}" == windows-* ]]; then
-          ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c -I/usr/include \
-            -L/usr/lib/x86_64-linux-gnu -lcrypto -lssl -static -static-libgcc \
-            -static-libstdc++ -g -Wall -Wextra
+          if [ "${{ matrix.target }}" = "windows-x86" ]; then
+            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+              -I/usr/i686-w64-mingw32/include \
+              -L/usr/i686-w64-mingw32/lib \
+              -lcrypto -lssl \
+              -static -static-libgcc -static-libstdc++ \
+              -g -Wall -Wextra
+          else
+            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+              -I/usr/x86_64-w64-mingw32/include \
+              -L/usr/x86_64-w64-mingw32/lib \
+              -lcrypto -lssl \
+              -static -static-libgcc -static-libstdc++ \
+              -g -Wall -Wextra
+          fi
         else
           ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c -lcrypto -lssl \
             -g -Wall -Wextra
