@@ -140,10 +140,6 @@ jobs:
           wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
           unzip openssl-3.4.0.zip
           
-          # Debug: Show directory structure
-          echo "Full directory listing:"
-          find . -type d
-          
           # Function to setup OpenSSL for a specific architecture
           setup_openssl() {
             local arch=$1
@@ -157,12 +153,6 @@ jobs:
             # Create necessary directories
             sudo mkdir -p "$include_dir/openssl"
             sudo mkdir -p "$lib_dir"
-            
-            # Debug: Show source directories
-            echo "Content of $arch include directory:"
-            ls -la "./$arch/include/"
-            echo "Content of $arch lib directory:"
-            ls -la "./$arch/lib/"
             
             # Copy include files
             if [ -d "./$arch/include" ]; then
@@ -183,26 +173,12 @@ jobs:
               ls -la "./$arch/lib/"
               exit 1
             fi
-            
-            # Verify files were copied
-            echo "Verifying copied files:"
-            ls -la "$include_dir/openssl/"
-            ls -la "$lib_dir/"
           }
           
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
             setup_openssl "x86" "/usr/i686-w64-mingw32/include" "/usr/i686-w64-mingw32/lib"
           else
             setup_openssl "x64" "/usr/x86_64-w64-mingw32/include" "/usr/x86_64-w64-mingw32/lib"
-          fi
-          
-          # Additional debug info
-          echo "OpenSSL setup completed"
-          echo "Final directory structure:"
-          if [ "${{ matrix.target }}" = "windows-x86" ]; then
-            ls -R /usr/i686-w64-mingw32/
-          else
-            ls -R /usr/x86_64-w64-mingw32/
           fi
 
       - name: Create Windows compatibility header
@@ -233,22 +209,46 @@ jobs:
             ls -l $MINGW_PATH/lib/libcrypto.a || true
             ls -l $MINGW_PATH/lib/libssl.a || true
             
+            # Windows compilation with full static linking
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
               -I. \
               -I$MINGW_PATH/include \
               -L$MINGW_PATH/lib \
-              -static -static-libgcc -static-libstdc++ \
-              -Wl,-Bstatic -lcrypto -lssl -Wl,-Bdynamic -lws2_32 \
+              -static \
+              -static-libgcc \
+              -static-libstdc++ \
+              -Wl,-Bstatic \
+              -lcrypto \
+              -lssl \
+              -lws2_32 \
+              -lgdi32 \
+              -lcrypt32 \
+              -luser32 \
+              -ladvapi32 \
+              -lkernel32 \
+              -lbcrypt \
               -g -Wall -Wextra
           else
-            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c -lcrypto -lssl \
+            # Linux compilation (unchanged)
+            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
+              -static -static-libgcc -static-libstdc++ \
+              -lcrypto -lssl \
               ${{ matrix.defines }} \
               -g -Wall -Wextra
           fi
           
           # Verify the binary was created
           ls -l ${{ matrix.output }} || echo "Binary not found!"
+          
+          # Check binary dependencies
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            echo "Checking Windows binary dependencies:"
+            $MINGW_PATH/bin/objdump -p ${{ matrix.output }} | grep "DLL Name"
+          else
+            echo "Checking Linux binary dependencies:"
+            ldd ${{ matrix.output }} || echo "No shared library dependencies (static binary)"
+          fi
 
       - name: Prepare binary for artifact
         run: |
