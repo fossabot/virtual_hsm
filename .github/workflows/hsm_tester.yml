@@ -191,37 +191,37 @@ jobs:
               -g -Wall -Wextra
           fi
 
-    - name: Check for changes and move binary
-      run: |
-        NEW_FILE=${{ matrix.output }}
-        TARGET_FILE=${{ matrix.output }}
-        
-        if [ -f "$TARGET_FILE" ]; then
-          if cmp -s "$NEW_FILE" "$TARGET_FILE"; then
-            echo "No changes detected in $TARGET_FILE"
-            rm "$NEW_FILE"
+      - name: Check for changes and move binary
+        run: |
+          NEW_FILE=${{ matrix.output }}
+          TARGET_FILE=${{ matrix.output }}
+          
+          if [ -f "$TARGET_FILE" ]; then
+            if cmp -s "$NEW_FILE" "$TARGET_FILE"; then
+              echo "No changes detected in $TARGET_FILE"
+              rm "$NEW_FILE"
+            else
+              echo "Changes detected in $TARGET_FILE"
+              mv "$NEW_FILE" "$TARGET_FILE"
+              echo "BINARY_CHANGED=true" >> $GITHUB_ENV
+            fi
           else
-            echo "Changes detected in $TARGET_FILE"
+            echo "New binary created: $TARGET_FILE"
             mv "$NEW_FILE" "$TARGET_FILE"
             echo "BINARY_CHANGED=true" >> $GITHUB_ENV
           fi
-        else
-          echo "New binary created: $TARGET_FILE"
-          mv "$NEW_FILE" "$TARGET_FILE"
-          echo "BINARY_CHANGED=true" >> $GITHUB_ENV
-        fi
 
-    - name: Commit and push binary if changed
-      if: env.BINARY_CHANGED == 'true'
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add ${{ matrix.output }}
-        git commit -m "Update compiled binary for ${{ matrix.target }}"
-        git push
+      - name: Commit and push binary if changed
+        if: env.BINARY_CHANGED == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ${{ matrix.output }}
+          git commit -m "Update compiled binary for ${{ matrix.target }}"
+          git push
 
-    - name: Upload compiled binary as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.output }}
-        path: ${{ matrix.output }}
+      - name: Upload compiled binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: ${{ matrix.output }}
