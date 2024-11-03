@@ -136,49 +136,33 @@ jobs:
       - name: Install Windows OpenSSL dependencies
         if: contains(matrix.target, 'windows')
         run: |
-          # Download and extract OpenSSL
-          wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
-          unzip openssl-3.4.0.zip
+          # Download precompiled static OpenSSL libraries
+          wget https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1w.tar.gz
+          tar xf OpenSSL_1_1_1w.tar.gz
           
-          # Function to setup OpenSSL for a specific architecture
-          setup_openssl() {
+          # Function to compile OpenSSL for Windows
+          compile_openssl() {
             local arch=$1
-            local include_dir=$2
-            local lib_dir=$3
+            local prefix=$2
+            cd openssl-OpenSSL_1_1_1w
             
-            echo "Setting up OpenSSL for $arch"
-            echo "Include dir: $include_dir"
-            echo "Lib dir: $lib_dir"
-            
-            # Create necessary directories
-            sudo mkdir -p "$include_dir/openssl"
-            sudo mkdir -p "$lib_dir"
-            
-            # Copy include files
-            if [ -d "./$arch/include" ]; then
-              sudo cp -r "./$arch/include/"* "$include_dir/"
-              echo "Copied include files"
+            # Configure for static build
+            if [ "$arch" = "win32" ]; then
+              ./Configure mingw no-shared no-async --prefix=$prefix --cross-compile-prefix=i686-w64-mingw32-
             else
-              echo "Error: Include directory ./$arch/include not found"
-              exit 1
+              ./Configure mingw64 no-shared no-async --prefix=$prefix --cross-compile-prefix=x86_64-w64-mingw32-
             fi
             
-            # Copy and rename library files
-            if [ -f "./$arch/lib/libcrypto.lib" ]; then
-              sudo cp "./$arch/lib/libcrypto.lib" "$lib_dir/libcrypto.a"
-              sudo cp "./$arch/lib/libssl.lib" "$lib_dir/libssl.a"
-              echo "Copied and renamed library files"
-            else
-              echo "Error: Library files not found in ./$arch/lib/"
-              ls -la "./$arch/lib/"
-              exit 1
-            fi
+            # Build and install
+            make -j$(nproc)
+            sudo make install_sw
+            cd ..
           }
           
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
-            setup_openssl "x86" "/usr/i686-w64-mingw32/include" "/usr/i686-w64-mingw32/lib"
+            compile_openssl "win32" "/usr/i686-w64-mingw32"
           else
-            setup_openssl "x64" "/usr/x86_64-w64-mingw32/include" "/usr/x86_64-w64-mingw32/lib"
+            compile_openssl "win64" "/usr/x86_64-w64-mingw32"
           fi
 
       - name: Create Windows compatibility header
@@ -204,11 +188,6 @@ jobs:
               MINGW_PATH="/usr/x86_64-w64-mingw32"
             fi
             
-            echo "Using MinGW path: $MINGW_PATH"
-            echo "Checking library existence:"
-            ls -l $MINGW_PATH/lib/libcrypto.a || true
-            ls -l $MINGW_PATH/lib/libssl.a || true
-            
             # Windows compilation with full static linking
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
@@ -219,8 +198,10 @@ jobs:
               -static-libgcc \
               -static-libstdc++ \
               -Wl,-Bstatic \
+              -Wl,--whole-archive \
               -lcrypto \
               -lssl \
+              -Wl,--no-whole-archive \
               -lws2_32 \
               -lgdi32 \
               -lcrypt32 \
@@ -228,6 +209,8 @@ jobs:
               -ladvapi32 \
               -lkernel32 \
               -lbcrypt \
+              -DOPENSSL_STATIC \
+              -DOPENSSL_NO_DYNAMIC_ENGINE \
               -g -Wall -Wextra
           else
             # Linux compilation (unchanged)
@@ -239,26 +222,32 @@ jobs:
           fi
           
           # Verify the binary was created
-          ls -l ${{ matrix.output }} || echo "Binary not found!"
+          ls -l ${{ matrix.output }}
           
           # Check binary dependencies
           if [[ "${{ matrix.target }}" == windows-* ]]; then
             echo "Checking Windows binary dependencies:"
-            $MINGW_PATH/bin/objdump -p ${{ matrix.output }} | grep "DLL Name"
+            $MINGW_PATH/bin/objdump -p ${{ matrix.output }} | grep "DLL"
           else
             echo "Checking Linux binary dependencies:"
             ldd ${{ matrix.output }} || echo "No shared library dependencies (static binary)"
           fi
 
-      - name: Prepare binary for artifact
+      - name: Verify binary
         run: |
           if [ -f "${{ matrix.output }}" ]; then
-            echo "Binary ${{ matrix.output }} exists and ready for upload"
+            echo "Binary exists. Checking properties:"
+            file ${{ matrix.output }}
+            if [[ "${{ matrix.target }}" == windows-* ]]; then
+              echo "Windows binary dependencies:"
+              ${{ matrix.cc }}-objdump -p ${{ matrix.output }} | grep "DLL" || echo "No DLL dependencies found"
+            else
+              echo "Linux binary dependencies:"
+              ldd ${{ matrix.output }} || echo "No shared library dependencies (static binary)"
+            fi
             sha256sum ${{ matrix.output }}
           else
-            echo "Error: Binary ${{ matrix.output }} not found!"
-            pwd
-            ls -la
+            echo "Error: Binary not found!"
             exit 1
           fi
 
