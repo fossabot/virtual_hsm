@@ -15,96 +15,96 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev
 
-      - name: Compile program
-        run: gcc -o virtual_hsm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+    - name: Compile program
+      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
 
-      - name: Store keys using SECRETS_TEST
-        run: |
-          echo "Storing ActionKey with value: ${{ env.ACTION_KEY }}"
-          echo -n "${{ env.ACTION_KEY }}" | xxd -p  # Debug: show hex of input
-          echo -n "${{ env.ACTION_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store ActionKey
-          echo "ActionKey stored"
-          
-          echo "Storing APP_SEC_KEY with value: ${{ env.APP_SEC_KEY }}"
-          echo -n "${{ env.APP_SEC_KEY }}" | xxd -p  # Debug: show hex of input
-          echo -n "${{ env.APP_SEC_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store myappseckey
-          echo "APP_SEC_KEY stored"
-          
-          echo "Keystore contents:"
-          hexdump -C test.keystore.dat
+    - name: Store keys using SECRETS_TEST
+      run: |
+        echo "Storing ActionKey with value: ${{ env.ACTION_KEY }}"
+        echo -n "${{ env.ACTION_KEY }}" | xxd -p  # Debug: show hex of input
+        echo -n "${{ env.ACTION_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store ActionKey
+        echo "ActionKey stored"
+        
+        echo "Storing APP_SEC_KEY with value: ${{ env.APP_SEC_KEY }}"
+        echo -n "${{ env.APP_SEC_KEY }}" | xxd -p  # Debug: show hex of input
+        echo -n "${{ env.APP_SEC_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store myappseckey
+        echo "APP_SEC_KEY stored"
+        
+        echo "Keystore contents:"
+        hexdump -C test.keystore.dat
 
-      - name: List keys
-        run: |
-          ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -list
+    - name: List keys
+      run: |
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -list
 
-      - name: Retrieve and verify keys
-        run: |
-          echo "Retrieving ActionKey:"
-          retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve ActionKey)
-          retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
-          expected="${{ env.ACTION_KEY }}"
-          echo "Retrieved value (hex): $retrieved"
-          echo "Expected value (hex): $expected"
-          if [ "$retrieved" != "$expected" ]; then
-            echo "Error: Retrieved ActionKey does not match stored value"
-            echo "Expected: $expected"
-            echo "Actual  : $retrieved"
-            echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
-            exit 1
-          fi
+    - name: Retrieve and verify keys
+      run: |
+        echo "Retrieving ActionKey:"
+        retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve ActionKey)
+        retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
+        expected="${{ env.ACTION_KEY }}"
+        echo "Retrieved value (hex): $retrieved"
+        echo "Expected value (hex): $expected"
+        if [ "$retrieved" != "$expected" ]; then
+          echo "Error: Retrieved ActionKey does not match stored value"
+          echo "Expected: $expected"
+          echo "Actual  : $retrieved"
+          echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
+          exit 1
+        fi
 
-          echo "Retrieving myappseckey:"
-          retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve myappseckey)
-          retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
-          expected="${{ env.APP_SEC_KEY }}"
-          echo "Retrieved value (hex): $retrieved"
-          echo "Expected value (hex): $expected"
-          if [ "$retrieved" != "$expected" ]; then
-            echo "Error: Retrieved myappseckey does not match stored value"
-            echo "Expected: $expected"
-            echo "Actual  : $retrieved"
-            echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
-            exit 1
-          fi
+        echo "Retrieving myappseckey:"
+        retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve myappseckey)
+        retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
+        expected="${{ env.APP_SEC_KEY }}"
+        echo "Retrieved value (hex): $retrieved"
+        echo "Expected value (hex): $expected"
+        if [ "$retrieved" != "$expected" ]; then
+          echo "Error: Retrieved myappseckey does not match stored value"
+          echo "Expected: $expected"
+          echo "Actual  : $retrieved"
+          echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
+          exit 1
+        fi
 
-      - name: Test digital signature functionality
-        run: |
-          echo "Generating key pair..."
-          ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -generate_key_pair test_key_pair
+    - name: Test digital signature functionality
+      run: |
+        echo "Generating key pair..."
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -generate_key_pair test_key_pair
 
-          echo "Signing data..."
-          echo -n "Test data to sign" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -sign test_key_pair > signature.bin
-          
-          echo "Signature contents:"
-          xxd signature.bin
+        echo "Signing data..."
+        echo -n "Test data to sign" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -sign test_key_pair > signature.bin
+        
+        echo "Signature contents:"
+        xxd signature.bin
 
-          echo "Verifying signature..."
-          (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
+        echo "Verifying signature..."
+        (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
 
-          echo "Exporting public key..."
-          ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key_test.pem
-          
-          echo "Public key contents:"
-          cat public_key_test.pem
+        echo "Exporting public key..."
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key_test.pem
+        
+        echo "Public key contents:"
+        cat public_key_test.pem
 
-          echo "Importing public key..."
-          cat public_key_test.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
+        echo "Importing public key..."
+        cat public_key_test.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
 
-          echo "Verifying signature with imported public key..."
-          (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
+        echo "Verifying signature with imported public key..."
+        (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
 
-      - name: Cleanup
-        run: |
-          rm -f test.keystore.dat signature.bin public_key.pem
-          export SECRETS_TEST=""
-          export ACTION_KEY=""
-          export APP_SEC_KEY=""
+    - name: Cleanup
+      run: |
+        rm -f test.keystore.dat signature.bin public_key.pem
+        export SECRETS_TEST=""
+        export ACTION_KEY=""
+        export APP_SEC_KEY=""
 
   cross-compile:
     needs: build-and-test
@@ -127,41 +127,41 @@ jobs:
             defines: "-DWIN32_LEAN_AND_MEAN -D_WIN32"
     steps:
       - uses: actions/checkout@v4
-  
-      - name: Install dependencies 
+
+      - name: Install dependencies 
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential
           sudo apt-get install -y mingw-w64
           sudo apt-get install -y libssl-dev
-  
+
       - name: Install Windows OpenSSL dependencies
-        if: contains(matrix.target, 'windows')  # Needs extra indentation
-          run: |
-            wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
-            unzip openssl-3.4.0.zip
-            sudo mkdir -p /usr/i686-w64-mingw32/include/
-            sudo mkdir -p /usr/x86_64-w64-mingw32/include/
-            if [ "${{ matrix.target }}" = "windows-x86" ]; then
-              sudo cp -r x86/include/* /usr/i686-w64-mingw32/include/
-              sudo cp -r x86/lib/* /usr/i686-w64-mingw32/lib/
-            else
-              sudo cp -r x64/include/* /usr/x86_64-w64-mingw32/include/
-              sudo cp -r x64/lib/* /usr/x86_64-w64-mingw32/lib/
-            fi
-  
+        if: contains(matrix.target, 'windows')
+        run: |
+          wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
+          unzip openssl-3.4.0.zip
+          sudo mkdir -p /usr/i686-w64-mingw32/include/
+          sudo mkdir -p /usr/x86_64-w64-mingw32/include/
+          if [ "${{ matrix.target }}" = "windows-x86" ]; then
+            sudo cp -r x86/include/* /usr/i686-w64-mingw32/include/
+            sudo cp -r x86/lib/* /usr/i686-w64-mingw32/lib/
+          else
+            sudo cp -r x64/include/* /usr/x86_64-w64-mingw32/include/
+            sudo cp -r x64/lib/* /usr/x86_64-w64-mingw32/lib/
+          fi
+
       - name: Create Windows compatibility header
-        if: contains(matrix.target, 'windows')  # Needs extra indentation
-          run: |
-            cat > win32_compat.h << 'EOL'
-            #ifdef _WIN32
-            #include <winsock2.h>
-            #include <windows.h>
-            #include <ws2tcpip.h>
-            #else
-            #include <sys/select.h>
-            #endif
-            EOL
+        if: contains(matrix.target, 'windows')
+        run: |
+          cat > win32_compat.h << 'EOL'
+          #ifdef _WIN32
+          #include <winsock2.h>
+          #include <windows.h>
+          #include <ws2tcpip.h>
+          #else
+          #include <sys/select.h>
+          #endif
+          EOL
 
       - name: Compile for ${{ matrix.target }}
         run: |
@@ -189,38 +189,39 @@ jobs:
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c -lcrypto -lssl \
               ${{ matrix.defines }} \
               -g -Wall -Wextra
+          fi
 
-      - name: Check for changes and move binary
-        run: |
-          NEW_FILE=${{ matrix.output }}
-          TARGET_FILE=${{ matrix.output }}
-          
-          if [ -f "$TARGET_FILE" ]; then
-            if cmp -s "$NEW_FILE" "$TARGET_FILE"; then
-              echo "No changes detected in $TARGET_FILE"
-              rm "$NEW_FILE"
-            else
-              echo "Changes detected in $TARGET_FILE"
-              mv "$NEW_FILE" "$TARGET_FILE"
-              echo "BINARY_CHANGED=true" >> $GITHUB_ENV
-            fi
+    - name: Check for changes and move binary
+      run: |
+        NEW_FILE=${{ matrix.output }}
+        TARGET_FILE=${{ matrix.output }}
+        
+        if [ -f "$TARGET_FILE" ]; then
+          if cmp -s "$NEW_FILE" "$TARGET_FILE"; then
+            echo "No changes detected in $TARGET_FILE"
+            rm "$NEW_FILE"
           else
-            echo "New binary created: $TARGET_FILE"
+            echo "Changes detected in $TARGET_FILE"
             mv "$NEW_FILE" "$TARGET_FILE"
             echo "BINARY_CHANGED=true" >> $GITHUB_ENV
           fi
-  
-      - name: Commit and push binary if changed
-        if: env.BINARY_CHANGED == 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add ${{ matrix.output }}
-          git commit -m "Update compiled binary for ${{ matrix.target }}"
-          git push
-  
-      - name: Upload compiled binary as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output }}
-          path: ${{ matrix.output }}
+        else
+          echo "New binary created: $TARGET_FILE"
+          mv "$NEW_FILE" "$TARGET_FILE"
+          echo "BINARY_CHANGED=true" >> $GITHUB_ENV
+        fi
+
+    - name: Commit and push binary if changed
+      if: env.BINARY_CHANGED == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add ${{ matrix.output }}
+        git commit -m "Update compiled binary for ${{ matrix.target }}"
+        git push
+
+    - name: Upload compiled binary as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.output }}
+        path: ${{ matrix.output }}
