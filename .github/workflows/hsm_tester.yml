@@ -13,11 +13,98 @@ env:
 
 jobs:
   build-and-test:
-    # Previous job remains unchanged
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    # ... rest of build-and-test job remains the same ...
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev
+
+    - name: Compile program
+      run: gcc -o virtual_hsm virtual_hsm.c -lcrypto -lssl -g -Wall -Wextra
+
+    - name: Store keys using SECRETS_TEST
+      run: |
+        echo "Storing ActionKey with value: ${{ env.ACTION_KEY }}"
+        echo -n "${{ env.ACTION_KEY }}" | xxd -p  # Debug: show hex of input
+        echo -n "${{ env.ACTION_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store ActionKey
+        echo "ActionKey stored"
+        
+        echo "Storing APP_SEC_KEY with value: ${{ env.APP_SEC_KEY }}"
+        echo -n "${{ env.APP_SEC_KEY }}" | xxd -p  # Debug: show hex of input
+        echo -n "${{ env.APP_SEC_KEY }}" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -store myappseckey
+        echo "APP_SEC_KEY stored"
+        
+        echo "Keystore contents:"
+        hexdump -C test.keystore.dat
+
+    - name: List keys
+      run: |
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -list
+
+    - name: Retrieve and verify keys
+      run: |
+        echo "Retrieving ActionKey:"
+        retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve ActionKey)
+        retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
+        expected="${{ env.ACTION_KEY }}"
+        echo "Retrieved value (hex): $retrieved"
+        echo "Expected value (hex): $expected"
+        if [ "$retrieved" != "$expected" ]; then
+          echo "Error: Retrieved ActionKey does not match stored value"
+          echo "Expected: $expected"
+          echo "Actual  : $retrieved"
+          echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
+          exit 1
+        fi
+
+        echo "Retrieving myappseckey:"
+        retrieved=$(./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -retrieve myappseckey)
+        retrieved=$(echo "$retrieved" | tr -d '\n' | tr -d ' ')  # Remove newlines and spaces
+        expected="${{ env.APP_SEC_KEY }}"
+        echo "Retrieved value (hex): $retrieved"
+        echo "Expected value (hex): $expected"
+        if [ "$retrieved" != "$expected" ]; then
+          echo "Error: Retrieved myappseckey does not match stored value"
+          echo "Expected: $expected"
+          echo "Actual  : $retrieved"
+          echo "Lengths - Expected: ${#expected}, Actual: ${#retrieved}"
+          exit 1
+        fi
+
+    - name: Test digital signature functionality
+      run: |
+        echo "Generating key pair..."
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -generate_key_pair test_key_pair
+
+        echo "Signing data..."
+        echo -n "Test data to sign" | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -sign test_key_pair > signature.bin
+        
+        echo "Signature contents:"
+        xxd signature.bin
+
+        echo "Verifying signature..."
+        (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify test_key_pair
+
+        echo "Exporting public key..."
+        ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -export_public_key test_key_pair > public_key_test.pem
+        
+        echo "Public key contents:"
+        cat public_key_test.pem
+
+        echo "Importing public key..."
+        cat public_key_test.pem | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -import_public_key imported_public_key
+
+        echo "Verifying signature with imported public key..."
+        (echo -n "Test data to sign"; cat signature.bin) | ./virtual_hsm -master_key ${{ env.SECRETS_TEST }} -keystore test.keystore.dat -verify imported_public_key
+
+    - name: Cleanup
+      run: |
+        rm -f test.keystore.dat signature.bin public_key.pem
+        export SECRETS_TEST=""
+        export ACTION_KEY=""
+        export APP_SEC_KEY=""
 
   cross-compile:
     needs: build-and-test
@@ -41,8 +128,96 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Previous steps remain unchanged until compilation
-      
+      - name: Install dependencies 
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential mingw-w64 libssl-dev
+
+      - name: Install Windows OpenSSL dependencies
+        if: contains(matrix.target, 'windows')
+        run: |
+          # Download and extract OpenSSL
+          wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
+          unzip openssl-3.4.0.zip
+          
+          # Debug: Show directory structure
+          echo "Full directory listing:"
+          find . -type d
+          
+          # Function to setup OpenSSL for a specific architecture
+          setup_openssl() {
+            local arch=$1
+            local include_dir=$2
+            local lib_dir=$3
+            
+            echo "Setting up OpenSSL for $arch"
+            echo "Include dir: $include_dir"
+            echo "Lib dir: $lib_dir"
+            
+            # Create necessary directories
+            sudo mkdir -p "$include_dir/openssl"
+            sudo mkdir -p "$lib_dir"
+            
+            # Debug: Show source directories
+            echo "Content of $arch include directory:"
+            ls -la "./$arch/include/"
+            echo "Content of $arch lib directory:"
+            ls -la "./$arch/lib/"
+            
+            # Copy include files
+            if [ -d "./$arch/include" ]; then
+              sudo cp -r "./$arch/include/"* "$include_dir/"
+              echo "Copied include files"
+            else
+              echo "Error: Include directory ./$arch/include not found"
+              exit 1
+            fi
+            
+            # Copy and rename library files
+            if [ -f "./$arch/lib/libcrypto.lib" ]; then
+              sudo cp "./$arch/lib/libcrypto.lib" "$lib_dir/libcrypto.a"
+              sudo cp "./$arch/lib/libssl.lib" "$lib_dir/libssl.a"
+              echo "Copied and renamed library files"
+            else
+              echo "Error: Library files not found in ./$arch/lib/"
+              ls -la "./$arch/lib/"
+              exit 1
+            fi
+            
+            # Verify files were copied
+            echo "Verifying copied files:"
+            ls -la "$include_dir/openssl/"
+            ls -la "$lib_dir/"
+          }
+          
+          if [ "${{ matrix.target }}" = "windows-x86" ]; then
+            setup_openssl "x86" "/usr/i686-w64-mingw32/include" "/usr/i686-w64-mingw32/lib"
+          else
+            setup_openssl "x64" "/usr/x86_64-w64-mingw32/include" "/usr/x86_64-w64-mingw32/lib"
+          fi
+          
+          # Additional debug info
+          echo "OpenSSL setup completed"
+          echo "Final directory structure:"
+          if [ "${{ matrix.target }}" = "windows-x86" ]; then
+            ls -R /usr/i686-w64-mingw32/
+          else
+            ls -R /usr/x86_64-w64-mingw32/
+          fi
+
+      - name: Create Windows compatibility header
+        if: contains(matrix.target, 'windows')
+        run: |
+          cat > win32_compat.h << 'EOL'
+          #ifdef _WIN32
+          #include <winsock2.h>
+          #include <windows.h>
+          #include <ws2tcpip.h>
+          #else
+          #include <sys/select.h>
+          #endif
+          EOL
+
       - name: Compile for ${{ matrix.target }}
         run: |
           if [[ "${{ matrix.target }}" == windows-* ]]; then
@@ -75,7 +250,6 @@ jobs:
           # Verify the binary was created
           ls -l ${{ matrix.output }} || echo "Binary not found!"
 
-      # Simplified binary handling - remove the check-and-move logic that might be deleting files
       - name: Prepare binary for artifact
         run: |
           if [ -f "${{ matrix.output }}" ]; then
@@ -93,7 +267,7 @@ jobs:
         with:
           name: ${{ matrix.output }}
           path: ${{ matrix.output }}
-          if-no-files-found: error  # This will make the step fail if no files are found
+          if-no-files-found: error
 
       - name: Commit and push binary
         run: |
