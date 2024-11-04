@@ -330,8 +330,8 @@ jobs:
       - name: Copy compiled binary to root
         run: |
           binary_path="release_package/${{ matrix.output }}"
-          if [[ "${{ matrix.target }}" == windows-* ]]; then
-            binary_path="${binary_path}.exe"  # Adjust path for Windows executables
+          if [[ "${{ matrix.target }}" == windows-* && "${{ matrix.output }}" != *.exe ]]; then
+            binary_path="${binary_path}.exe"  # Only add .exe if not already present
           fi
           cp $binary_path ./  # Copy the compiled binary to the root
 
