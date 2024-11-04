@@ -153,23 +153,41 @@ jobs:
             OPENSSL_ARCH="x64"
           fi
 
-          # Create directories and set proper permissions
+          # Create all necessary directories
           sudo mkdir -p $MINGW_PATH/{include/openssl,lib,bin}
+          sudo mkdir -p $MINGW_PATH/lib/{engines-3,ossl-modules}
           
-          # Copy OpenSSL files with proper permissions
+          # Copy OpenSSL files with proper permissions - using recursive copy for directories
           sudo cp -r ./$OPENSSL_ARCH/include/openssl/* $MINGW_PATH/include/openssl/
-          sudo cp ./$OPENSSL_ARCH/lib/* $MINGW_PATH/lib/
-          sudo cp ./$OPENSSL_ARCH/bin/* $MINGW_PATH/bin/
+          sudo cp -r ./$OPENSSL_ARCH/lib/* $MINGW_PATH/lib/
+          sudo cp -r ./$OPENSSL_ARCH/lib/engines-3 $MINGW_PATH/lib/
+          sudo cp -r ./$OPENSSL_ARCH/lib/ossl-modules $MINGW_PATH/lib/
+          sudo cp -r ./$OPENSSL_ARCH/bin/* $MINGW_PATH/bin/
           
-          # Create a local lib directory for the build
+          # Create a local lib directory for the build and copy all necessary files
           mkdir -p ../lib
-          cp ./$OPENSSL_ARCH/bin/* ../lib/
+          mkdir -p ../lib/{engines-3,ossl-modules}
+          cp -r ./$OPENSSL_ARCH/lib/engines-3/* ../lib/engines-3/
+          cp -r ./$OPENSSL_ARCH/lib/ossl-modules/* ../lib/ossl-modules/
+          cp -r ./$OPENSSL_ARCH/bin/* ../lib/
           
-          # Ensure all files have correct permissions
-          sudo chmod 644 $MINGW_PATH/lib/*
-          sudo chmod 644 $MINGW_PATH/bin/*
+          # Ensure all files and directories have correct permissions
+          sudo chmod -R 644 $MINGW_PATH/lib/*
+          sudo chmod -R 644 $MINGW_PATH/bin/*
           sudo chmod -R 644 $MINGW_PATH/include/openssl/*
+          
+          # Make directories executable
           sudo chmod 755 $MINGW_PATH/{include,include/openssl,lib,bin}
+          sudo chmod 755 $MINGW_PATH/lib/{engines-3,ossl-modules}
+          sudo chmod 755 ../lib/{engines-3,ossl-modules}
+          
+          # Make DLLs executable
+          sudo chmod 755 $MINGW_PATH/bin/*.dll
+          sudo chmod 755 $MINGW_PATH/lib/engines-3/*.dll
+          sudo chmod 755 $MINGW_PATH/lib/ossl-modules/*.dll
+          chmod 755 ../lib/*.dll
+          chmod 755 ../lib/engines-3/*.dll
+          chmod 755 ../lib/ossl-modules/*.dll
           
           cd ..
           rm -rf openssl_setup
