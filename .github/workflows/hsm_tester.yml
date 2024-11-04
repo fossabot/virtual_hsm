@@ -230,9 +230,6 @@ Files included:
 - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
 - Additional runtime DLLs required for operation
 EOF
-
-            EOF
-
           else
             # Linux compilation (static linking)
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
