@@ -153,41 +153,20 @@ jobs:
             OPENSSL_ARCH="x64"
           fi
 
-          # Create all necessary directories
-          sudo mkdir -p $MINGW_PATH/{include/openssl,lib,bin}
-          sudo mkdir -p $MINGW_PATH/lib/{engines-3,ossl-modules}
+          # Create directories with proper permissions
+          sudo mkdir -p $MINGW_PATH/include/openssl
+          sudo mkdir -p $MINGW_PATH/lib
+          sudo mkdir -p $MINGW_PATH/bin
           
-          # Copy OpenSSL files with proper permissions - using recursive copy for directories
+          # Copy OpenSSL headers, libraries and DLLs
           sudo cp -r ./$OPENSSL_ARCH/include/openssl/* $MINGW_PATH/include/openssl/
-          sudo cp -r ./$OPENSSL_ARCH/lib/* $MINGW_PATH/lib/
-          sudo cp -r ./$OPENSSL_ARCH/lib/engines-3 $MINGW_PATH/lib/
-          sudo cp -r ./$OPENSSL_ARCH/lib/ossl-modules $MINGW_PATH/lib/
-          sudo cp -r ./$OPENSSL_ARCH/bin/* $MINGW_PATH/bin/
+          sudo cp ./$OPENSSL_ARCH/lib/*.lib $MINGW_PATH/lib/
+          sudo cp ./$OPENSSL_ARCH/bin/*.dll $MINGW_PATH/bin/
           
-          # Create a local lib directory for the build and copy all necessary files
-          mkdir -p ../lib
-          mkdir -p ../lib/{engines-3,ossl-modules}
-          cp -r ./$OPENSSL_ARCH/lib/engines-3/* ../lib/engines-3/
-          cp -r ./$OPENSSL_ARCH/lib/ossl-modules/* ../lib/ossl-modules/
-          cp -r ./$OPENSSL_ARCH/bin/* ../lib/
-          
-          # Ensure all files and directories have correct permissions
-          sudo chmod -R 644 $MINGW_PATH/lib/*
-          sudo chmod -R 644 $MINGW_PATH/bin/*
+          # Set proper permissions
+          sudo chmod 644 $MINGW_PATH/lib/*.lib
+          sudo chmod 644 $MINGW_PATH/bin/*.dll
           sudo chmod -R 644 $MINGW_PATH/include/openssl/*
-          
-          # Make directories executable
-          sudo chmod 755 $MINGW_PATH/{include,include/openssl,lib,bin}
-          sudo chmod 755 $MINGW_PATH/lib/{engines-3,ossl-modules}
-          sudo chmod 755 ../lib/{engines-3,ossl-modules}
-          
-          # Make DLLs executable
-          sudo chmod 755 $MINGW_PATH/bin/*.dll
-          sudo chmod 755 $MINGW_PATH/lib/engines-3/*.dll
-          sudo chmod 755 $MINGW_PATH/lib/ossl-modules/*.dll
-          chmod 755 ../lib/*.dll
-          chmod 755 ../lib/engines-3/*.dll
-          chmod 755 ../lib/ossl-modules/*.dll
           
           cd ..
           rm -rf openssl_setup
@@ -205,37 +184,23 @@ jobs:
           #endif
           EOL
 
-      - name: Create build directory
-        run: mkdir -p build
-
       - name: Compile for ${{ matrix.target }}
         run: |
           if [[ "${{ matrix.target }}" == windows-* ]]; then
-            # Set architecture-specific paths and flags
+            # Set architecture-specific paths
             if [ "${{ matrix.target }}" = "windows-x86" ]; then
               MINGW_PATH="/usr/i686-w64-mingw32"
-              DLL_SUFFIX=""
-              ARCH_FLAGS="-m32"
             else
               MINGW_PATH="/usr/x86_64-w64-mingw32"
-              DLL_SUFFIX="-x64"
-              ARCH_FLAGS="-m64"
             fi
             
-            # Compile with corrected flags for Windows
-            ${{ matrix.cc }} -o build/${{ matrix.output }} virtual_hsm.c \
+            # Windows compilation with DLL linking
+            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
-              ${ARCH_FLAGS} \
-              -mwin32 \
-              -mconsole \
-              -fno-stack-protector \
-              -D_WINDOWS \
-              -DWIN32 \
-              -D_WIN32 \
               -I. \
               -I$MINGW_PATH/include \
               -L$MINGW_PATH/lib \
-              -Llib \
+              -L$MINGW_PATH/bin \
               -lcrypto \
               -lssl \
               -lws2_32 \
@@ -246,13 +211,18 @@ jobs:
               -lkernel32 \
               -lbcrypt \
               -g -Wall -Wextra
-            
-            # Copy DLLs to build directory
-            cp lib/libcrypto-3${DLL_SUFFIX}.dll build/
-            cp lib/libssl-3${DLL_SUFFIX}.dll build/
+
+            # Copy required DLLs alongside the executable
+            if [ "${{ matrix.target }}" = "windows-x86" ]; then
+              cp $MINGW_PATH/bin/libcrypto-3.dll ./
+              cp $MINGW_PATH/bin/libssl-3.dll ./
+            else
+              cp $MINGW_PATH/bin/libcrypto-3-x64.dll ./
+              cp $MINGW_PATH/bin/libssl-3-x64.dll ./
+            fi
           else
-            # Linux compilation (static linking)
-            ${{ matrix.cc }} -o build/${{ matrix.output }} virtual_hsm.c \
+            # Linux compilation (unchanged)
+            ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               -static -static-libgcc -static-libstdc++ \
               -lcrypto -lssl \
               ${{ matrix.defines }} \
@@ -261,17 +231,17 @@ jobs:
 
       - name: Verify binary
         run: |
-          if [ -f "build/${{ matrix.output }}" ]; then
+          if [ -f "${{ matrix.output }}" ]; then
             echo "Binary exists. Checking properties:"
-            file build/${{ matrix.output }}
+            file ${{ matrix.output }}
             if [[ "${{ matrix.target }}" == windows-* ]]; then
               echo "Windows binary dependencies:"
-              ${{ matrix.cc }}-objdump -p build/${{ matrix.output }} | grep "DLL"
+              ${{ matrix.cc }}-objdump -p ${{ matrix.output }} | grep "DLL" || echo "No DLL dependencies found"
             else
               echo "Linux binary dependencies:"
-              ldd build/${{ matrix.output }} || echo "No shared library dependencies (static binary)"
+              ldd ${{ matrix.output }} || echo "No shared library dependencies (static binary)"
             fi
-            sha256sum build/${{ matrix.output }}
+            sha256sum ${{ matrix.output }}
           else
             echo "Error: Binary not found!"
             exit 1
@@ -281,24 +251,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.output }}_with_dlls
-          path: build/
+          path: |
+            ${{ matrix.output }}
+            *.dll
           if-no-files-found: error
 
       - name: Commit and push binary
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          cp build/${{ matrix.output }} ./
-          if [[ "${{ matrix.target }}" == windows-* ]]; then
-            if [ "${{ matrix.target }}" = "windows-x86" ]; then
-              cp build/libcrypto-3.dll ./
-              cp build/libssl-3.dll ./
-            else
-              cp build/libcrypto-3-x64.dll ./
-              cp build/libssl-3-x64.dll ./
-            fi
-          fi
           git add ${{ matrix.output }}
-          git add *.dll || true
           git commit -m "Update compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
           git push || echo "No changes to push"
