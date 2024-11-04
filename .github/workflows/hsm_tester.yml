@@ -140,7 +140,7 @@ jobs:
           wget https://www.openssl.org/source/openssl-3.1.4.tar.gz
           tar xzf openssl-3.1.4.tar.gz
           cd openssl-3.1.4
-
+      
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
             # 32-bit Windows build
             TARGET_DIR="$PWD/../openssl_static_x86"
@@ -152,36 +152,48 @@ jobs:
             CROSS_PREFIX="x86_64-w64-mingw32-"
             CONFIG_TARGET="mingw64"
           fi
-
-          # Configure OpenSSL
+      
+          # Create installation directory structure
+          mkdir -p ${TARGET_DIR}/{lib,include,bin}
+      
+          # Configure OpenSSL with explicit paths
           echo "Configuring OpenSSL for ${{ matrix.target }}..."
-          ./Configure ${CONFIG_TARGET} no-shared --prefix=${TARGET_DIR} --cross-compile-prefix=${CROSS_PREFIX} || {
-            echo "Configure failed! Debug info:"
-            cat config.log
-            exit 1
+          ./Configure ${CONFIG_TARGET} no-shared \
+            --prefix=${TARGET_DIR} \
+            --openssldir=${TARGET_DIR}/ssl \
+            --libdir=lib \
+            --cross-compile-prefix=${CROSS_PREFIX} \
+            -static || {
+              echo "Configure failed! Debug info:"
+              cat config.log
+              exit 1
           }
-
+      
           # Build OpenSSL
           echo "Building OpenSSL..."
-          make -j$(nproc) || {
+          make -j$(nproc) build_sw || {
             echo "Make failed! Last few lines of build output:"
             tail -n 50 make.log
             exit 1
           }
-
+      
+          # Install OpenSSL
           echo "Installing OpenSSL..."
           make install_sw || {
             echo "Install failed!"
             exit 1
           }
-
+      
+          # Additional debug information
+          echo "Installation directory structure:"
+          find ${TARGET_DIR} -type f -ls
+      
           # Verify the build
           echo "Verifying OpenSSL installation..."
-          ls -la ${TARGET_DIR}/lib/
-          ls -la ${TARGET_DIR}/include/
-          
           if [ ! -f "${TARGET_DIR}/lib/libssl.a" ] || [ ! -f "${TARGET_DIR}/lib/libcrypto.a" ]; then
             echo "Error: Static libraries not found!"
+            echo "Contents of ${TARGET_DIR}:"
+            ls -R ${TARGET_DIR}
             exit 1
           fi
           
