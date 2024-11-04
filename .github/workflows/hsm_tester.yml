@@ -233,16 +233,17 @@ jobs:
             cp ${{ matrix.output }} release_package/
             
             # Create Linux README
-            cat > "release_package/README.txt" << EOT
-Virtual HSM Linux Build
-----------------------
-
-This package contains the Virtual HSM executable built as a static binary.
-No additional runtime dependencies are required.
-
-Files included:
-- ${{ matrix.output }}
-EOT
+            echo "Virtual HSM Linux Build" > release_package/README.txt
+            echo "------------------------" >> release_package/README.txt
+            echo "" >> release_package/README.txt
+            echo "This package contains the Virtual HSM executable built as a static binary." >> release_package/README.txt
+            echo "No additional runtime dependencies are required." >> release_package/README.txt
+            echo "" >> release_package/README.txt
+            echo "Files included:" >> release_package/README.txt
+            echo "- ${{ matrix.output }}" >> release_package/README.txt
+            echo "- libcrypto-3${DLL_SUFFIX}.dll" >> release_package/README.txt
+            echo "- libssl-3${DLL_SUFFIX}.dll" >> release_package/README.txt
+            echo "- Additional runtime DLLs required for operation" >> release_package/README.txt
           fi
 
       - name: Verify binary and dependencies
