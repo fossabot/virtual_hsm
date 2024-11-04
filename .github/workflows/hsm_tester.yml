@@ -155,10 +155,6 @@ jobs:
           sudo cp ./$OPENSSL_ARCH/lib/*.lib $MINGW_PATH/lib/
           sudo cp ./$OPENSSL_ARCH/bin/*.dll $MINGW_PATH/bin/
           
-          sudo chmod 644 $MINGW_PATH/lib/*.lib
-          sudo chmod 644 $MINGW_PATH/bin/*.dll
-          sudo chmod -R 644 $MINGW_PATH/include/openssl/*
-          
           cd ..
           rm -rf openssl_setup
 
@@ -177,7 +173,10 @@ jobs:
 
       - name: Compile for ${{ matrix.target }}
         run: |
+          mkdir -p release_package
+          
           if [[ "${{ matrix.target }}" == windows-* ]]; then
+            # Windows build configuration
             if [ "${{ matrix.target }}" = "windows-x86" ]; then
               MINGW_PATH="/usr/i686-w64-mingw32"
               DLL_SUFFIX=""
@@ -203,40 +202,49 @@ jobs:
               -lbcrypt \
               -g -Wall -Wextra
 
-            mkdir -p release_package
             cp ${{ matrix.output }} release_package/
-
             cp $MINGW_PATH/bin/libcrypto-3${DLL_SUFFIX}.dll release_package/
             cp $MINGW_PATH/bin/libssl-3${DLL_SUFFIX}.dll release_package/
             cp $MINGW_PATH/bin/libgcc_s_*-1.dll release_package/
             cp $MINGW_PATH/bin/libstdc++-6.dll release_package/
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
-            OUTPUT_NAME="${{ matrix.output }}"
-            
-            cat > "release_package/README.txt" << 'EOT'
-            Virtual HSM Windows Build
-            ------------------------
-            
-            This package contains the Virtual HSM executable and all required DLLs.
-            Please keep all files in the same directory when running the application.
-            
-            Files included:
-            - ${OUTPUT_NAME}
-            - libcrypto-3${DLL_SUFFIX}.dll
-            - libssl-3${DLL_SUFFIX}.dll
-            - Additional runtime DLLs required for operation
-            EOT
+            # Create Windows README with proper heredoc syntax
+            cat > "release_package/README.txt" << EOT
+Virtual HSM Windows Build
+------------------------
+
+This package contains the Virtual HSM executable and all required DLLs.
+Please keep all files in the same directory when running the application.
+
+Files included:
+- ${{ matrix.output }}
+- libcrypto-3${DLL_SUFFIX}.dll
+- libssl-3${DLL_SUFFIX}.dll
+- Additional runtime DLLs required for operation
+EOT
 
           else
+            # Linux build configuration
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               -static -static-libgcc -static-libstdc++ \
               -lcrypto -lssl \
               ${{ matrix.defines }} \
               -g -Wall -Wextra
             
-            mkdir -p release_package
             cp ${{ matrix.output }} release_package/
+            
+            # Create Linux README
+            cat > "release_package/README.txt" << EOT
+Virtual HSM Linux Build
+----------------------
+
+This package contains the Virtual HSM executable built as a static binary.
+No additional runtime dependencies are required.
+
+Files included:
+- ${{ matrix.output }}
+EOT
           fi
 
       - name: Verify binary and dependencies
