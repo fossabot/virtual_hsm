@@ -212,7 +212,9 @@ jobs:
             cp $MINGW_PATH/bin/libstdc++-6.dll release_package/
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
-            cat > "release_package/README.txt" << 'EOF'
+            OUTPUT_NAME="${{ matrix.output }}"
+            
+            cat > "release_package/README.txt" << 'EOT'
             Virtual HSM Windows Build
             ------------------------
             
@@ -220,11 +222,11 @@ jobs:
             Please keep all files in the same directory when running the application.
             
             Files included:
-            - '${{ matrix.output }}': Main executable
-            - libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
-            - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
+            - ${OUTPUT_NAME}
+            - libcrypto-3${DLL_SUFFIX}.dll
+            - libssl-3${DLL_SUFFIX}.dll
             - Additional runtime DLLs required for operation
-            EOF
+            EOT
 
           else
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
