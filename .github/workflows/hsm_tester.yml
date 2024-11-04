@@ -209,20 +209,18 @@ jobs:
             cp $MINGW_PATH/bin/libstdc++-6.dll release_package/
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
-            # Create Windows README with proper heredoc syntax
-            cat > "release_package/README.txt" << EOT
-Virtual HSM Windows Build
-------------------------
-
-This package contains the Virtual HSM executable and all required DLLs.
-Please keep all files in the same directory when running the application.
-
-Files included:
-- ${{ matrix.output }}
-- libcrypto-3${DLL_SUFFIX}.dll
-- libssl-3${DLL_SUFFIX}.dll
-- Additional runtime DLLs required for operation
-EOT
+            # Create Windows README using multiple echo commands
+            echo "Virtual HSM Windows Build" > release_package/README.txt
+            echo "------------------------" >> release_package/README.txt
+            echo "" >> release_package/README.txt
+            echo "This package contains the Virtual HSM executable and all required DLLs." >> release_package/README.txt
+            echo "Please keep all files in the same directory when running the application." >> release_package/README.txt
+            echo "" >> release_package/README.txt
+            echo "Files included:" >> release_package/README.txt
+            echo "- ${{ matrix.output }}" >> release_package/README.txt
+            echo "- libcrypto-3${DLL_SUFFIX}.dll" >> release_package/README.txt
+            echo "- libssl-3${DLL_SUFFIX}.dll" >> release_package/README.txt
+            echo "- Additional runtime DLLs required for operation" >> release_package/README.txt
 
           else
             # Linux build configuration
