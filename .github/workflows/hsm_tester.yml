@@ -138,22 +138,16 @@ jobs:
         run: |
           mkdir openssl_setup
           cd openssl_setup
-
           wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
           unzip openssl-3.4.0.zip
-
+          
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
             MINGW_PATH="/usr/i686-w64-mingw32"
-            OPENSSL_ARCH="x86"
+            cp -r ./x86/* $MINGW_PATH/
           else
             MINGW_PATH="/usr/x86_64-w64-mingw32"
-            OPENSSL_ARCH="x64"
+            cp -r ./x64/* $MINGW_PATH/
           fi
-
-          sudo mkdir -p $MINGW_PATH/{include/openssl,lib,bin}
-          sudo cp -r ./$OPENSSL_ARCH/include/openssl/* $MINGW_PATH/include/openssl/
-          sudo cp ./$OPENSSL_ARCH/lib/*.lib $MINGW_PATH/lib/
-          sudo cp ./$OPENSSL_ARCH/bin/*.dll $MINGW_PATH/bin/
           
           cd ..
           rm -rf openssl_setup
@@ -179,10 +173,12 @@ jobs:
             # Windows build configuration
             if [ "${{ matrix.target }}" = "windows-x86" ]; then
               MINGW_PATH="/usr/i686-w64-mingw32"
-              DLL_SUFFIX=""
+              OPENSSL_SUFFIX=""
+              GCC_PREFIX="i686-w64-mingw32"
             else
               MINGW_PATH="/usr/x86_64-w64-mingw32"
-              DLL_SUFFIX="-x64"
+              OPENSSL_SUFFIX="-x64"
+              GCC_PREFIX="x86_64-w64-mingw32"
             fi
             
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
@@ -190,7 +186,6 @@ jobs:
               -I. \
               -I$MINGW_PATH/include \
               -L$MINGW_PATH/lib \
-              -L$MINGW_PATH/bin \
               -lcrypto \
               -lssl \
               -lws2_32 \
@@ -203,13 +198,17 @@ jobs:
               -g -Wall -Wextra
 
             cp ${{ matrix.output }} release_package/
-            cp $MINGW_PATH/bin/libcrypto-3${DLL_SUFFIX}.dll release_package/
-            cp $MINGW_PATH/bin/libssl-3${DLL_SUFFIX}.dll release_package/
-            cp $MINGW_PATH/bin/libgcc_s_*-1.dll release_package/
-            cp $MINGW_PATH/bin/libstdc++-6.dll release_package/
-            cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
+            
+            # Copy OpenSSL DLLs from the extracted zip
+            cp $MINGW_PATH/bin/libcrypto-3${OPENSSL_SUFFIX}.dll release_package/
+            cp $MINGW_PATH/bin/libssl-3${OPENSSL_SUFFIX}.dll release_package/
+            
+            # Copy MinGW runtime DLLs
+            cp $MINGW_PATH/bin/libgcc_s_*.dll release_package/ || true
+            cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/ || true
+            cp $MINGW_PATH/bin/libstdc++-6.dll release_package/ || true
 
-            # Create Windows README using multiple echo commands
+            # Create Windows README
             echo "Virtual HSM Windows Build" > release_package/README.txt
             echo "------------------------" >> release_package/README.txt
             echo "" >> release_package/README.txt
@@ -218,8 +217,8 @@ jobs:
             echo "" >> release_package/README.txt
             echo "Files included:" >> release_package/README.txt
             echo "- ${{ matrix.output }}" >> release_package/README.txt
-            echo "- libcrypto-3${DLL_SUFFIX}.dll" >> release_package/README.txt
-            echo "- libssl-3${DLL_SUFFIX}.dll" >> release_package/README.txt
+            echo "- libcrypto-3${OPENSSL_SUFFIX}.dll" >> release_package/README.txt
+            echo "- libssl-3${OPENSSL_SUFFIX}.dll" >> release_package/README.txt
             echo "- Additional runtime DLLs required for operation" >> release_package/README.txt
 
           else
@@ -241,11 +240,7 @@ jobs:
             echo "" >> release_package/README.txt
             echo "Files included:" >> release_package/README.txt
             echo "- ${{ matrix.output }}" >> release_package/README.txt
-            echo "- libcrypto-3${DLL_SUFFIX}.dll" >> release_package/README.txt
-            echo "- libssl-3${DLL_SUFFIX}.dll" >> release_package/README.txt
-            echo "- Additional runtime DLLs required for operation" >> release_package/README.txt
           fi
-
       - name: Verify binary and dependencies
         run: |
           if [ -f "release_package/${{ matrix.output }}" ]; then
