@@ -317,3 +317,15 @@ jobs:
             ${{ matrix.output }}_release.zip
             ${{ matrix.output }}_release.tar.gz
           if-no-files-found: warn
+
+      - name: Copy compiled binary to root
+        run: |
+          cp release_package/${{ matrix.output }} ./  # Copy the compiled binary to the root
+
+      - name: Commit and push binary
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ${{ matrix.output }}
+          git commit -m "Update compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
+          git push || echo "No changes to push"
