@@ -217,19 +217,19 @@ jobs:
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
             # Create a README file
-            cat > release_package/README.txt << EOL
-            Virtual HSM Windows Build
-            ------------------------
-            
-            This package contains the Virtual HSM executable and all required DLLs.
-            Please keep all files in the same directory when running the application.
-            
-            Files included:
-            - ${{ matrix.output }}: Main executable
-            - libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
-            - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
-            - Additional runtime DLLs required for operation
-            EOL
+            cat > release_package/README.txt << 'EOL'
+Virtual HSM Windows Build
+------------------------
+
+This package contains the Virtual HSM executable and all required DLLs.
+Please keep all files in the same directory when running the application.
+
+Files included:
+- ${{ matrix.output }}: Main executable
+- libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
+- libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
+- Additional runtime DLLs required for operation
+EOL
 
           else
             # Linux compilation (static linking)
@@ -263,13 +263,6 @@ jobs:
             exit 1
           fi
 
-      - name: Upload release package
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output }}_release_package
-          path: release_package/*
-          if-no-files-found: error
-
       - name: Create release archive
         run: |
           cd release_package
@@ -278,6 +271,13 @@ jobs:
           else
             tar czf ../${{ matrix.output }}_release.tar.gz *
           fi
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}_release_package
+          path: release_package/*
+          if-no-files-found: error
 
       - name: Upload release archive
         uses: actions/upload-artifact@v4
