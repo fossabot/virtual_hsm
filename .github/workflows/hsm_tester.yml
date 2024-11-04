@@ -301,6 +301,7 @@ jobs:
           else
             tar czf ../${{ matrix.output }}_release.tar.gz *
           fi
+          ls -lh ../  # Log contents to verify files are created
 
       - name: Upload release package
         uses: actions/upload-artifact@v4
@@ -326,17 +327,18 @@ jobs:
           elif [[ -f "${{ matrix.output }}_release.tar.gz" ]]; then
             cp "${{ matrix.output }}_release.tar.gz" ./release/
           fi
+          ls -lh release/  # Log release folder contents
 
       - name: Copy compiled binary to root
         run: |
           binary_path="release_package/${{ matrix.output }}"
-          # For Windows, ensure the .exe extension
-          if [[ "${{ matrix.target }}" == windows-* && "${binary_path}" != *.exe ]]; then
+          if [[ "${{ matrix.target }}" == windows-* && "${{ matrix.output }}" != *.exe ]]; then
             binary_path="${binary_path}.exe"
           fi
-          # Copy binary to both root and release folder
           cp "$binary_path" ./  # Copy to root
           cp "$binary_path" ./release/  # Copy to release folder
+          ls -lh ./  # Log root contents
+          ls -lh release/  # Log release folder contents again
 
       - name: Commit and push release artifacts and binaries
         run: |
