@@ -241,7 +241,11 @@ jobs:
             file release_package/${{ matrix.output }}
             if [[ "${{ matrix.target }}" == windows-* ]]; then
               echo "Windows binary dependencies:"
-              ${{ matrix.cc }}-objdump -p release_package/${{ matrix.output }} | grep "DLL"
+              if [ "${{ matrix.target }}" = "windows-x86" ]; then
+                i686-w64-mingw32-objdump -p release_package/${{ matrix.output }} | grep "DLL"
+              else
+                x86_64-w64-mingw32-objdump -p release_package/${{ matrix.output }} | grep "DLL"
+              fi
               echo "Package contents:"
               ls -l release_package/
             else
