@@ -211,18 +211,27 @@ jobs:
       - name: Compile for ${{ matrix.target }}
         run: |
           if [[ "${{ matrix.target }}" == windows-* ]]; then
-            # Set architecture-specific paths
+            # Set architecture-specific paths and flags
             if [ "${{ matrix.target }}" = "windows-x86" ]; then
               MINGW_PATH="/usr/i686-w64-mingw32"
               DLL_SUFFIX=""
+              ARCH_FLAGS="-m32"
             else
               MINGW_PATH="/usr/x86_64-w64-mingw32"
               DLL_SUFFIX="-x64"
+              ARCH_FLAGS="-m64"
             fi
             
-            # Compile with all necessary Windows libraries and proper paths
+            # Compile with corrected flags for Windows
             ${{ matrix.cc }} -o build/${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
+              ${ARCH_FLAGS} \
+              -mwin32 \
+              -mconsole \
+              -fno-stack-protector \
+              -D_WINDOWS \
+              -DWIN32 \
+              -D_WIN32 \
               -I. \
               -I$MINGW_PATH/include \
               -L$MINGW_PATH/lib \
