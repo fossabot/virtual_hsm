@@ -322,24 +322,27 @@ jobs:
         run: |
           mkdir -p release  # Create /release folder in the root
           if [[ -f "${{ matrix.output }}_release.zip" ]]; then
-            cp ${{ matrix.output }}_release.zip ./release/
+            cp "${{ matrix.output }}_release.zip" ./release/
           elif [[ -f "${{ matrix.output }}_release.tar.gz" ]]; then
-            cp ${{ matrix.output }}_release.tar.gz ./release/
+            cp "${{ matrix.output }}_release.tar.gz" ./release/
           fi
 
       - name: Copy compiled binary to root
         run: |
           binary_path="release_package/${{ matrix.output }}"
-          if [[ "${{ matrix.target }}" == windows-* && "${{ matrix.output }}" != *.exe ]]; then
-            binary_path="${binary_path}.exe"  # Only add .exe if not already present
+          # For Windows, ensure the .exe extension
+          if [[ "${{ matrix.target }}" == windows-* && "${binary_path}" != *.exe ]]; then
+            binary_path="${binary_path}.exe"
           fi
-          cp $binary_path ./  # Copy the compiled binary to the root
+          # Copy binary to both root and release folder
+          cp "$binary_path" ./  # Copy to root
+          cp "$binary_path" ./release/  # Copy to release folder
 
       - name: Commit and push release artifacts and binaries
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add release/${{ matrix.output }}_release.*
-          git add ${{ matrix.output }}*  # Adds binaries with or without extensions
+          git add release/${{ matrix.output }}_release.*  # Add archives to release folder
+          git add ./${{ matrix.output }}*  # Add binaries in the root
           git commit -m "Update release artifacts and compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
           git push || echo "No changes to push"
