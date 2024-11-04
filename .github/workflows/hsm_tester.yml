@@ -321,17 +321,25 @@ jobs:
       - name: Create release folder and copy artifacts
         run: |
           mkdir -p release  # Create /release folder in the root
-          cp ${{ matrix.output }}_release.* ./release/  # Copy the release archives to /release
+          if [[ -f "${{ matrix.output }}_release.zip" ]]; then
+            cp ${{ matrix.output }}_release.zip ./release/
+          elif [[ -f "${{ matrix.output }}_release.tar.gz" ]]; then
+            cp ${{ matrix.output }}_release.tar.gz ./release/
+          fi
 
       - name: Copy compiled binary to root
         run: |
-          cp release_package/${{ matrix.output }} ./  # Copy the compiled binary to the root
+          binary_path="release_package/${{ matrix.output }}"
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            binary_path="${binary_path}.exe"  # Adjust path for Windows executables
+          fi
+          cp $binary_path ./  # Copy the compiled binary to the root
 
       - name: Commit and push release artifacts and binaries
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add release/${{ matrix.output }}_release.*
-          git add ${{ matrix.output }}
+          git add ${{ matrix.output }}*  # Adds binaries with or without extensions
           git commit -m "Update release artifacts and compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
           git push || echo "No changes to push"
