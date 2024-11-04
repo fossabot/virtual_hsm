@@ -217,7 +217,8 @@ jobs:
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
             # Create a README file
-            echo "Virtual HSM Windows Build
+            cat <<EOF > release_package/README.txt
+            Virtual HSM Windows Build
             ------------------------
             
             This package contains the Virtual HSM executable and all required DLLs.
@@ -227,7 +228,8 @@ jobs:
             - ${matrix.output}: Main executable
             - libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
             - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
-            - Additional runtime DLLs required for operation" > release_package/README.txt DLLs required for operation" > release_package/README.txt
+            - Additional runtime DLLs required for operation
+            EOF
 
           else
             # Linux compilation (static linking)
