@@ -212,19 +212,19 @@ jobs:
             cp $MINGW_PATH/bin/libstdc++-6.dll release_package/
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
-            cat > release_package/README.txt << EOF
-Virtual HSM Windows Build
-------------------------
-
-This package contains the Virtual HSM executable and all required DLLs.
-Please keep all files in the same directory when running the application.
-
-Files included:
-- ${{ matrix.output }}: Main executable
-- libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
-- libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
-- Additional runtime DLLs required for operation
-EOF
+            cat > "release_package/README.txt" << 'EOF'
+            Virtual HSM Windows Build
+            ------------------------
+            
+            This package contains the Virtual HSM executable and all required DLLs.
+            Please keep all files in the same directory when running the application.
+            
+            Files included:
+            - '${{ matrix.output }}': Main executable
+            - libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
+            - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
+            - Additional runtime DLLs required for operation
+            EOF
 
           else
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
