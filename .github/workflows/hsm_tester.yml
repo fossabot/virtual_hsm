@@ -143,29 +143,49 @@ jobs:
 
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
             # 32-bit Windows build
-            ./Configure mingw no-shared --prefix=$PWD/../openssl_static_x86 --cross-compile-prefix=i686-w64-mingw32-
-            make -j$(nproc)
-            make install_sw
+            TARGET_DIR="$PWD/../openssl_static_x86"
+            CROSS_PREFIX="i686-w64-mingw32-"
+            CONFIG_TARGET="mingw"
           else
             # 64-bit Windows build
-            ./Configure mingw64 no-shared --prefix=$PWD/../openssl_static_x64 --cross-compile-prefix=x86_64-w64-mingw32-
-            make -j$(nproc)
-            make install_sw
+            TARGET_DIR="$PWD/../openssl_static_x64"
+            CROSS_PREFIX="x86_64-w64-mingw32-"
+            CONFIG_TARGET="mingw64"
           fi
-          cd ..
 
-      - name: Create Windows compatibility header
-        if: contains(matrix.target, 'windows')
-        run: |
-          cat > win32_compat.h << "EOL"
-          #ifdef _WIN32
-          #include <winsock2.h>
-          #include <windows.h>
-          #include <ws2tcpip.h>
-          #else
-          #include <sys/select.h>
-          #endif
-          EOL
+          # Configure OpenSSL
+          echo "Configuring OpenSSL for ${{ matrix.target }}..."
+          ./Configure ${CONFIG_TARGET} no-shared --prefix=${TARGET_DIR} --cross-compile-prefix=${CROSS_PREFIX} || {
+            echo "Configure failed! Debug info:"
+            cat config.log
+            exit 1
+          }
+
+          # Build OpenSSL
+          echo "Building OpenSSL..."
+          make -j$(nproc) || {
+            echo "Make failed! Last few lines of build output:"
+            tail -n 50 make.log
+            exit 1
+          }
+
+          echo "Installing OpenSSL..."
+          make install_sw || {
+            echo "Install failed!"
+            exit 1
+          }
+
+          # Verify the build
+          echo "Verifying OpenSSL installation..."
+          ls -la ${TARGET_DIR}/lib/
+          ls -la ${TARGET_DIR}/include/
+          
+          if [ ! -f "${TARGET_DIR}/lib/libssl.a" ] || [ ! -f "${TARGET_DIR}/lib/libcrypto.a" ]; then
+            echo "Error: Static libraries not found!"
+            exit 1
+          fi
+          
+          cd ..
 
       - name: Compile for ${{ matrix.target }}
         run: |
@@ -179,18 +199,23 @@ jobs:
               OPENSSL_DIR="$PWD/openssl_static_x64"
             fi
             
+            echo "OpenSSL directory contents:"
+            ls -R ${OPENSSL_DIR}
+            
+            echo "Compiling with OpenSSL from: ${OPENSSL_DIR}"
+            
             # Static linking for Windows
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
               -I. \
-              -I$OPENSSL_DIR/include \
-              -L$OPENSSL_DIR/lib \
+              -I${OPENSSL_DIR}/include \
+              -L${OPENSSL_DIR}/lib \
               -static \
               -static-libgcc \
               -static-libstdc++ \
               -Wl,-Bstatic \
-              -lssl \
-              -lcrypto \
+              ${OPENSSL_DIR}/lib/libssl.a \
+              ${OPENSSL_DIR}/lib/libcrypto.a \
               -lws2_32 \
               -lgdi32 \
               -lcrypt32 \
@@ -198,7 +223,13 @@ jobs:
               -ladvapi32 \
               -lkernel32 \
               -lbcrypt \
-              -g -Wall -Wextra
+              -g -Wall -Wextra || {
+                echo "Compilation failed! Debug info:"
+                echo "Compiler: ${{ matrix.cc }}"
+                echo "OpenSSL lib directory contents:"
+                ls -l ${OPENSSL_DIR}/lib/
+                exit 1
+              }
 
             cp ${{ matrix.output }} release_package/
 
