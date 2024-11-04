@@ -218,16 +218,16 @@ jobs:
 
             # Create a README file
             echo "Virtual HSM Windows Build
-------------------------
-
-This package contains the Virtual HSM executable and all required DLLs.
-Please keep all files in the same directory when running the application.
-
-Files included:
-- ${matrix.output}: Main executable
-- libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
-- libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
-- Additional runtime DLLs required for operation" > release_package/README.txt DLLs required for operation" > release_package/README.txt
+            ------------------------
+            
+            This package contains the Virtual HSM executable and all required DLLs.
+            Please keep all files in the same directory when running the application.
+            
+            Files included:
+            - ${matrix.output}: Main executable
+            - libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
+            - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
+            - Additional runtime DLLs required for operation" > release_package/README.txt DLLs required for operation" > release_package/README.txt
 
           else
             # Linux compilation (static linking)
