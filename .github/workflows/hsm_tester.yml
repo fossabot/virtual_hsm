@@ -318,14 +318,20 @@ jobs:
             ${{ matrix.output }}_release.tar.gz
           if-no-files-found: warn
 
+      - name: Create release folder and copy artifacts
+        run: |
+          mkdir -p release  # Create /release folder in the root
+          cp ${{ matrix.output }}_release.* ./release/  # Copy the release archives to /release
+
       - name: Copy compiled binary to root
         run: |
           cp release_package/${{ matrix.output }} ./  # Copy the compiled binary to the root
 
-      - name: Commit and push binary
+      - name: Commit and push release artifacts and binaries
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git add release/${{ matrix.output }}_release.*
           git add ${{ matrix.output }}
-          git commit -m "Update compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
+          git commit -m "Update release artifacts and compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
           git push || echo "No changes to push"
