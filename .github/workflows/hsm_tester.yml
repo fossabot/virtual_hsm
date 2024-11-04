@@ -106,7 +106,7 @@ jobs:
         export ACTION_KEY=""
         export APP_SEC_KEY=""
 
-  cross-compile:
+cross-compile:
     needs: build-and-test
     runs-on: ubuntu-latest
     strategy:
@@ -133,29 +133,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential mingw-w64 libssl-dev
 
-      - name: Install Windows OpenSSL dependencies
+      - name: Build static OpenSSL for Windows
         if: contains(matrix.target, 'windows')
         run: |
-          # Create local directories for OpenSSL
-          mkdir -p openssl_local/{x86,x64}/{bin,include,lib}
-          
-          # Download and extract OpenSSL
-          mkdir openssl_setup
-          cd openssl_setup
-          wget https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.4.0.zip
-          unzip openssl-3.4.0.zip
-          
-          # Copy files to local directories instead of system paths
+          # Download and extract OpenSSL source
+          wget https://www.openssl.org/source/openssl-3.1.4.tar.gz
+          tar xzf openssl-3.1.4.tar.gz
+          cd openssl-3.1.4
+
           if [ "${{ matrix.target }}" = "windows-x86" ]; then
-            cp -r ./x86/* ../openssl_local/x86/
-            OPENSSL_DIR="../openssl_local/x86"
+            # 32-bit Windows build
+            ./Configure mingw no-shared --prefix=$PWD/../openssl_static_x86 --cross-compile-prefix=i686-w64-mingw32-
+            make -j$(nproc)
+            make install_sw
           else
-            cp -r ./x64/* ../openssl_local/x64/
-            OPENSSL_DIR="../openssl_local/x64"
+            # 64-bit Windows build
+            ./Configure mingw64 no-shared --prefix=$PWD/../openssl_static_x64 --cross-compile-prefix=x86_64-w64-mingw32-
+            make -j$(nproc)
+            make install_sw
           fi
-          
           cd ..
-          rm -rf openssl_setup
 
       - name: Create Windows compatibility header
         if: contains(matrix.target, 'windows')
@@ -177,20 +174,23 @@ jobs:
           if [[ "${{ matrix.target }}" == windows-* ]]; then
             # Windows build configuration
             if [ "${{ matrix.target }}" = "windows-x86" ]; then
-              OPENSSL_DIR="openssl_local/x86"
-              OPENSSL_SUFFIX=""
+              OPENSSL_DIR="$PWD/openssl_static_x86"
             else
-              OPENSSL_DIR="openssl_local/x64"
-              OPENSSL_SUFFIX="-x64"
+              OPENSSL_DIR="$PWD/openssl_static_x64"
             fi
             
+            # Static linking for Windows
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               ${{ matrix.defines }} \
               -I. \
               -I$OPENSSL_DIR/include \
               -L$OPENSSL_DIR/lib \
-              -lcrypto \
+              -static \
+              -static-libgcc \
+              -static-libstdc++ \
+              -Wl,-Bstatic \
               -lssl \
+              -lcrypto \
               -lws2_32 \
               -lgdi32 \
               -lcrypt32 \
@@ -201,20 +201,13 @@ jobs:
               -g -Wall -Wextra
 
             cp ${{ matrix.output }} release_package/
-            
-            # Copy OpenSSL DLLs from our local directory
-            cp $OPENSSL_DIR/bin/libcrypto-3${OPENSSL_SUFFIX}.dll release_package/
-            cp $OPENSSL_DIR/bin/libssl-3${OPENSSL_SUFFIX}.dll release_package/
-            
-            # Copy MinGW runtime DLLs using wildcard to handle different versions
-            cp $(dirname $(${{ matrix.cc }} -print-libgcc-file-name))/*.dll release_package/
 
             # Create Windows README
             echo "Virtual HSM Windows Build" > release_package/README.txt
             echo "------------------------" >> release_package/README.txt
             echo "" >> release_package/README.txt
-            echo "This package contains the Virtual HSM executable and all required DLLs." >> release_package/README.txt
-            echo "Please keep all files in the same directory when running the application." >> release_package/README.txt
+            echo "This package contains the Virtual HSM executable built as a static binary." >> release_package/README.txt
+            echo "No additional DLLs are required to run this application." >> release_package/README.txt
 
           else
             # Linux build configuration remains unchanged
@@ -226,14 +219,13 @@ jobs:
             
             cp ${{ matrix.output }} release_package/
             
-            # Create Linux README
             echo "Virtual HSM Linux Build" > release_package/README.txt
             echo "------------------------" >> release_package/README.txt
             echo "" >> release_package/README.txt
             echo "This package contains the Virtual HSM executable built as a static binary." >> release_package/README.txt
             echo "No additional runtime dependencies are required." >> release_package/README.txt
           fi
-          
+
       - name: Verify binary and dependencies
         run: |
           if [ -f "release_package/${{ matrix.output }}" ]; then
@@ -242,9 +234,9 @@ jobs:
             if [[ "${{ matrix.target }}" == windows-* ]]; then
               echo "Windows binary dependencies:"
               if [ "${{ matrix.target }}" = "windows-x86" ]; then
-                i686-w64-mingw32-objdump -p release_package/${{ matrix.output }} | grep "DLL"
+                i686-w64-mingw32-objdump -p release_package/${{ matrix.output }} | grep "DLL" || echo "No DLL dependencies (static binary)"
               else
-                x86_64-w64-mingw32-objdump -p release_package/${{ matrix.output }} | grep "DLL"
+                x86_64-w64-mingw32-objdump -p release_package/${{ matrix.output }} | grep "DLL" || echo "No DLL dependencies (static binary)"
               fi
               echo "Package contents:"
               ls -l release_package/
