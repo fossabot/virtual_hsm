@@ -203,35 +203,30 @@ jobs:
               -lbcrypt \
               -g -Wall -Wextra
 
-            # Create a directory for the release package
             mkdir -p release_package
             cp ${{ matrix.output }} release_package/
 
-            # Copy OpenSSL DLLs
             cp $MINGW_PATH/bin/libcrypto-3${DLL_SUFFIX}.dll release_package/
             cp $MINGW_PATH/bin/libssl-3${DLL_SUFFIX}.dll release_package/
-
-            # Copy MinGW runtime DLLs
             cp $MINGW_PATH/bin/libgcc_s_*-1.dll release_package/
             cp $MINGW_PATH/bin/libstdc++-6.dll release_package/
             cp $MINGW_PATH/bin/libwinpthread-1.dll release_package/
 
-            # Create a README file
-            cat << EOF > release_package/README.txt
-            Virtual HSM Windows Build
-            ------------------------
-            
-            This package contains the Virtual HSM executable and all required DLLs.
-            Please keep all files in the same directory when running the application.
-            
-            Files included:
-            - ${{ matrix.output }}: Main executable
-            - libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
-            - libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
-            - Additional runtime DLLs required for operation
-            EOF
+            cat > release_package/README.txt << EOF
+Virtual HSM Windows Build
+------------------------
+
+This package contains the Virtual HSM executable and all required DLLs.
+Please keep all files in the same directory when running the application.
+
+Files included:
+- ${{ matrix.output }}: Main executable
+- libcrypto-3${DLL_SUFFIX}.dll: OpenSSL cryptography library
+- libssl-3${DLL_SUFFIX}.dll: OpenSSL SSL/TLS library
+- Additional runtime DLLs required for operation
+EOF
+
           else
-            # Linux compilation (static linking)
             ${{ matrix.cc }} -o ${{ matrix.output }} virtual_hsm.c \
               -static -static-libgcc -static-libstdc++ \
               -lcrypto -lssl \
