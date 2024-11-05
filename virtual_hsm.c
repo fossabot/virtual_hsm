@@ -143,7 +143,15 @@ void handle_import_public_key_command(const CommandLineArgs* args) {
     size_t pem_len = 0;
 
     if (args->input_file) {
-        pem_len = read_file(args->input_file, pem_key, sizeof(pem_key));
+        unsigned char* data = read_file(args->input_file, &pem_len);
+        if (data) {
+            strncpy(pem_key, (char*)data, sizeof(pem_key) - 1);
+            pem_key[sizeof(pem_key) - 1] = '\0';
+            free(data);
+        } else {
+            fprintf(stderr, "Error: Failed to read input file\n");
+            exit(1);
+        }
     } else if (args->input_string) {
         pem_len = strlen(args->input_string);
         strncpy(pem_key, args->input_string, sizeof(pem_key) - 1);
