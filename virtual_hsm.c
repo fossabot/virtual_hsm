@@ -18,10 +18,32 @@
 #include "utils.h"
 #include "key_func.h"
 
+KeyEntry keystore[MAX_KEYS];
+int key_count = 0;
+unsigned char master_key[KEY_SIZE];
+
+char keystore_file[MAX_FILENAME] = "keystore.dat";
+char master_key_file[MAX_FILENAME] = "master.key";
+
+// Function prototypes //
+void update_global_paths(const CommandLineArgs* args);
 void handle_sign_command(const CommandLineArgs* args);
 void handle_verify_command(const CommandLineArgs* args);
+void handle_export_public_key_command(const char* key_name);
 void handle_import_public_key_command(const CommandLineArgs* args);
 
+// Function to update global file paths from arguments
+void update_global_paths(const CommandLineArgs* args) {
+    if (strlen(args->keystore_file) > 0) {
+        strncpy(keystore_file, args->keystore_file, MAX_FILENAME - 1);
+        keystore_file[MAX_FILENAME - 1] = '\0';
+    }
+    
+    if (strlen(args->master_key_file) > 0) {
+        strncpy(master_key_file, args->master_key_file, MAX_FILENAME - 1);
+        master_key_file[MAX_FILENAME - 1] = '\0';
+    }
+}
 int main(int argc, char *argv[]) {
     fprintf(stderr, "Debug: Starting virtual_hsm\n");
     
