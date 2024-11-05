@@ -55,13 +55,15 @@ int main(int argc, char *argv[]) {
 
     update_global_paths(&args);
 
+    load_master_key(args.provided_master_key);
+    load_keystore();
+
     if (strcmp(args.command, "-generate_master_key") == 0) {
         generate_master_key();
         return 0;
     }
 
-    load_master_key(args.provided_master_key);
-    load_keystore();
+
 
     if (strcmp(args.command, "-store") == 0) {
         char hex_key[KEY_SIZE * 2 + 1];
