@@ -160,6 +160,17 @@ void handle_verify_command(const CommandLineArgs* args) {
     free(data);
 }
 
+void handle_export_public_key_command(const char* key_name) {
+    char *pem_key;
+    if (export_public_key(key_name, &pem_key)) {
+        printf("%s", pem_key);
+        free(pem_key);
+    } else {
+        fprintf(stderr, "Public key export failed\n");
+        exit(1);
+    }
+}
+
 void handle_import_public_key_command(const CommandLineArgs* args) {
     char pem_key[PEM_KEY_CHAR_ARR_SIZE];
     size_t pem_len = 0;
