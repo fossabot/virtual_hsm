@@ -17,6 +17,9 @@ typedef struct {
     const char* provided_master_key;
     const char* command;
     const char* key_name;
+    const char* input_file;
+    const char* output_file;
+    const char* input_string;
 } CommandLineArgs;
 
 // Function prototypes
