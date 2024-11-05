@@ -327,44 +327,64 @@ jobs:
             ls -l "release/${{ matrix.output }}_release.tar.gz" || echo "Release tar.gz not found"
           fi
 
-      - name: Commit and push binary with verification
+- name: Commit and push binary with verification
         run: |
-          # Add binary to root
-          if [ -f "${{ matrix.output }}" ]; then
-            git add -f "${{ matrix.output }}"
-            echo "Added binary: ${{ matrix.output }}"
-          else
+          # Verify binary exists before git operations
+          if [ ! -f "${{ matrix.output }}" ]; then
             echo "Error: Binary ${{ matrix.output }} not found in root directory"
             exit 1
           fi
           
-          # Add release archive
+          # Verify release archive exists
           if [[ "${{ matrix.target }}" == windows-* ]]; then
-            if [ -f "release/${{ matrix.output }}_release.zip" ]; then
-              git add -f "release/${{ matrix.output }}_release.zip"
-              echo "Added release zip: release/${{ matrix.output }}_release.zip"
-            else
+            if [ ! -f "release/${{ matrix.output }}_release.zip" ]; then
               echo "Error: Release zip not found"
               exit 1
             fi
           else
-            if [ -f "release/${{ matrix.output }}_release.tar.gz" ]; then
-              git add -f "release/${{ matrix.output }}_release.tar.gz"
-              echo "Added release tar.gz: release/${{ matrix.output }}_release.tar.gz"
-            else
+            if [ ! -f "release/${{ matrix.output }}_release.tar.gz" ]; then
               echo "Error: Release tar.gz not found"
               exit 1
             fi
           fi
           
-          # Commit changes
+          # Add binary to git
+          git add -f "${{ matrix.output }}" || {
+            echo "Failed to add binary to git"
+            exit 1
+          }
+          
+          # Add release archive to git
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            git add -f "release/${{ matrix.output }}_release.zip" || {
+              echo "Failed to add release zip to git"
+              exit 1
+            }
+          else
+            git add -f "release/${{ matrix.output }}_release.tar.gz" || {
+              echo "Failed to add release tar.gz to git"
+              exit 1
+            }
+          fi
+          
+          # Show status before commit
+          echo "Git status before commit:"
           git status
+          
+          # Fetch remote changes before committing
+          git fetch
+          git pull || {
+            echo "Git pull failed"
+            exit 1
+          }
+          
+          # Commit changes
           git commit -m "Update binary and release artifacts for ${{ matrix.target }}" || {
             echo "Git commit failed"
             exit 1
           }
           
-          # Push changes with error checking
+          # Push changes
           git push || {
             echo "Git push failed"
             exit 1
