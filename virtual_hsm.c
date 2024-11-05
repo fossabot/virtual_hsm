@@ -117,7 +117,7 @@ void handle_verify_command(const CommandLineArgs* args) {
 
     if (args->input_file) {
         data = read_file(args->input_file, &data_len);
-        sig_len = read_file(args->input_string, signature, sizeof(signature));
+        sig_len = read_hex_string(args->input_string, signature, sizeof(signature));
     } else if (args->input_string) {
         data = (unsigned char*)args->input_string;
         data_len = strlen(args->input_string);
