@@ -298,7 +298,7 @@ jobs:
           # Create release directory if it doesn't exist
           mkdir -p release
           
-          # Copy binary to root
+          # Copy binary to root and release directory
           cp "release_package/${{ matrix.output }}" ./
           
           # Create release archive
@@ -308,6 +308,18 @@ jobs:
           else
             tar czf "../release/${{ matrix.output }}_release.tar.gz" *
           fi
+
+      - name: Commit and push binary
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add and commit both the root binary and release archive
+          git add "${{ matrix.output }}"
+          git add "release/${{ matrix.output }}_release.*"
+          
+          git commit -m "Update binary and release artifacts for ${{ matrix.target }}" || echo "No changes to commit"
+          git push || echo "No changes to push"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
