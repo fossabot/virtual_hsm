@@ -327,7 +327,7 @@ jobs:
             ls -l "release/${{ matrix.output }}_release.tar.gz" || echo "Release tar.gz not found"
           fi
 
-- name: Commit and push binary with verification
+      - name: Commit and push binary with verification
         run: |
           # Verify binary exists before git operations
           if [ ! -f "${{ matrix.output }}" ]; then
