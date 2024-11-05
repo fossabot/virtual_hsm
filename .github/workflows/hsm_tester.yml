@@ -314,9 +314,9 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # Add and commit both the root binary and release archive
-          git add "${{ matrix.output }}"
-          git add "release/${{ matrix.output }}_release.*"
+          # Force add the binary and release files
+          git add -f "${{ matrix.output }}"
+          git add -f "release/${{ matrix.output }}_release.*"
           
           git commit -m "Update binary and release artifacts for ${{ matrix.target }}" || echo "No changes to commit"
           git push || echo "No changes to push"
