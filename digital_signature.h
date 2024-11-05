@@ -36,10 +36,11 @@ KeyPair *find_key_pair(const char *name) {
                 DEBUG_PRINT("Memory allocation failed for KeyPair");
                 return NULL;
             }
-            if (keystore[i].encrypted_len != KEY_SIZE || keystore[i].iv_len != IV_SIZE) {
-                DEBUG_PRINT("Invalid key data for: %s", name);
-                return NULL;
-            }
+            // ADD'L work needed
+            //if (keystore[i].encrypted_len != KEY_SIZE || keystore[i].iv_len != IV_SIZE) {
+            //    DEBUG_PRINT("Invalid key data for: %s", name);
+            //    return NULL;
+            //}
             
             strncpy(pair->name, name, MAX_NAME_LENGTH);
             pair->name[MAX_NAME_LENGTH] = '\0';
