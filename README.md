@@ -21,7 +21,7 @@ A virtualized hardware security management tool.
 
 ## Overview
 
-This virtual HSM is exceptionally simple and is not meant to be a true HSM, there is no actual hardware management platform in use. This is a virtualized expression of an HSM that can be addressed via terminal commands. The purpose of the program is to assist those in learning how to interact with HSMs and their functionality.
+This virtual HSM is relatively simple and is not meant to be a true HSM, there is no actual hardware management platform in use. This is a virtualized expression of an HSM that can be addressed via terminal commands. The purpose of the program is to assist those in learning how to interact with HSMs and their functionality. It does provide encryption services, key storage, and ED25519 digital signatures. However, it's all done without storage in a secure hardware environment. 
 
 **Warning: Do not use in production environments**
 
