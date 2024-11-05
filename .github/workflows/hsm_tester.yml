@@ -293,46 +293,20 @@ jobs:
             exit 1
           fi
 
-      - name: Create release archive
+      - name: Create release archive and copy files
         run: |
+          # Create release directory if it doesn't exist
+          mkdir -p release
+          
+          # Copy binary to root
+          cp "release_package/${{ matrix.output }}" ./
+          
+          # Create release archive
           cd release_package
           if [[ "${{ matrix.target }}" == windows-* ]]; then
             zip -r "../release/${{ matrix.output }}_release.zip" *
           else
             tar czf "../release/${{ matrix.output }}_release.tar.gz" *
-          fi
-
-      - name: Copy binary to root
-        run: |
-          mkdir -p release
-          cp "release_package/${{ matrix.output }}" ./
-
-      - name: Configure Git
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-      - name: Commit and push changes
-        run: |
-          # Fetch and pull latest changes
-          git pull origin main --rebase
-          
-          # Stage only the specific files we want
-          git add -f "./${{ matrix.output }}"
-          git add -f "./release/${{ matrix.output }}_release.*"
-          
-          # Commit if there are changes
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update binary and release artifacts for ${{ matrix.target }}"
-            
-            # Try pushing changes
-            git push || {
-              # If push fails, pull again and rebase
-              git pull origin main --rebase
-              git push
-            }
           fi
 
       - name: Upload artifacts
