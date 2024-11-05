@@ -297,54 +297,45 @@ jobs:
         run: |
           cd release_package
           if [[ "${{ matrix.target }}" == windows-* ]]; then
-            zip -r ../${{ matrix.output }}_release.zip *
+            zip -r "../release/${{ matrix.output }}_release.zip" *
           else
-            tar czf ../${{ matrix.output }}_release.tar.gz *
+            tar czf "../release/${{ matrix.output }}_release.tar.gz" *
           fi
-          ls -lh ../  # Log contents to verify files are created
 
-      - name: Upload release package
+      - name: Copy binary to root
+        run: |
+          # Ensure release directory exists
+          mkdir -p release
+
+          # Copy the binary from release_package to root directory
+          cp "release_package/${{ matrix.output }}" ./
+
+          # List contents for verification
+          echo "Root directory contents:"
+          ls -lh ./
+          echo "Release directory contents:"
+          ls -lh ./release/
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.output }}_release_package
-          path: release_package/*
+          name: ${{ matrix.output }}_all_artifacts
+          path: |
+            ./${{ matrix.output }}
+            ./release/${{ matrix.output }}_release.*
           if-no-files-found: error
 
-      - name: Upload release archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output }}_release_archive
-          path: |
-            ${{ matrix.output }}_release.zip
-            ${{ matrix.output }}_release.tar.gz
-          if-no-files-found: warn
-
-      - name: Create release folder and copy artifacts
-        run: |
-          mkdir -p release  # Create /release folder in the root
-          if [[ -f "${{ matrix.output }}_release.zip" ]]; then
-            cp "${{ matrix.output }}_release.zip" ./release/
-          elif [[ -f "${{ matrix.output }}_release.tar.gz" ]]; then
-            cp "${{ matrix.output }}_release.tar.gz" ./release/
-          fi
-          ls -lh release/  # Log release folder contents
-
-      - name: Copy compiled binary to root
-        run: |
-          binary_path="release_package/${{ matrix.output }}"
-          if [[ "${{ matrix.target }}" == windows-* && "${{ matrix.output }}" != *.exe ]]; then
-            binary_path="${binary_path}.exe"
-          fi
-          cp "$binary_path" ./  # Copy to root
-          cp "$binary_path" ./release/  # Copy to release folder
-          ls -lh ./  # Log root contents
-          ls -lh release/  # Log release folder contents again
-
-      - name: Commit and push release artifacts and binaries
+      - name: Commit and push changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add release/${{ matrix.output }}_release.*  # Add archives to release folder
-          git add ./${{ matrix.output }}*  # Add binaries in the root
-          git commit -m "Update release artifacts and compiled binary for ${{ matrix.target }}" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          
+          # Add only the binary in root and release archives
+          git add "./${{ matrix.output }}"
+          git add "./release/${{ matrix.output }}_release.*"
+          
+          # Commit and push if there are changes
+          git diff --staged --quiet || {
+            git commit -m "Update binary and release artifacts for ${{ matrix.target }}"
+            git push
+          }
