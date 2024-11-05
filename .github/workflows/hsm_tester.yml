@@ -304,17 +304,36 @@ jobs:
 
       - name: Copy binary to root
         run: |
-          # Ensure release directory exists
           mkdir -p release
-
-          # Copy the binary from release_package to root directory
           cp "release_package/${{ matrix.output }}" ./
 
-          # List contents for verification
-          echo "Root directory contents:"
-          ls -lh ./
-          echo "Release directory contents:"
-          ls -lh ./release/
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Commit and push changes
+        run: |
+          # Fetch and pull latest changes
+          git pull origin main --rebase
+          
+          # Stage only the specific files we want
+          git add -f "./${{ matrix.output }}"
+          git add -f "./release/${{ matrix.output }}_release.*"
+          
+          # Commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update binary and release artifacts for ${{ matrix.target }}"
+            
+            # Try pushing changes
+            git push || {
+              # If push fails, pull again and rebase
+              git pull origin main --rebase
+              git push
+            }
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -324,18 +343,3 @@ jobs:
             ./${{ matrix.output }}
             ./release/${{ matrix.output }}_release.*
           if-no-files-found: error
-
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Add only the binary in root and release archives
-          git add "./${{ matrix.output }}"
-          git add "./release/${{ matrix.output }}_release.*"
-          
-          # Commit and push if there are changes
-          git diff --staged --quiet || {
-            git commit -m "Update binary and release artifacts for ${{ matrix.target }}"
-            git push
-          }
