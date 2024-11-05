@@ -309,17 +309,66 @@ jobs:
             tar czf "../release/${{ matrix.output }}_release.tar.gz" *
           fi
 
-      - name: Commit and push binary
+      - name: Prepare git for binary commit
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          # Create release directory if it doesn't exist
+          mkdir -p release
+
+      - name: Verify files before commit
+        run: |
+          echo "Checking binary existence:"
+          ls -l "${{ matrix.output }}" || echo "Binary not found in root"
+          echo "Checking release archive existence:"
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            ls -l "release/${{ matrix.output }}_release.zip" || echo "Release zip not found"
+          else
+            ls -l "release/${{ matrix.output }}_release.tar.gz" || echo "Release tar.gz not found"
+          fi
+
+      - name: Commit and push binary with verification
+        run: |
+          # Add binary to root
+          if [ -f "${{ matrix.output }}" ]; then
+            git add -f "${{ matrix.output }}"
+            echo "Added binary: ${{ matrix.output }}"
+          else
+            echo "Error: Binary ${{ matrix.output }} not found in root directory"
+            exit 1
+          fi
           
-          # Force add the binary and release files
-          git add -f "${{ matrix.output }}"
-          git add -f "release/${{ matrix.output }}_release.*"
+          # Add release archive
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            if [ -f "release/${{ matrix.output }}_release.zip" ]; then
+              git add -f "release/${{ matrix.output }}_release.zip"
+              echo "Added release zip: release/${{ matrix.output }}_release.zip"
+            else
+              echo "Error: Release zip not found"
+              exit 1
+            fi
+          else
+            if [ -f "release/${{ matrix.output }}_release.tar.gz" ]; then
+              git add -f "release/${{ matrix.output }}_release.tar.gz"
+              echo "Added release tar.gz: release/${{ matrix.output }}_release.tar.gz"
+            else
+              echo "Error: Release tar.gz not found"
+              exit 1
+            fi
+          fi
           
-          git commit -m "Update binary and release artifacts for ${{ matrix.target }}" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          # Commit changes
+          git status
+          git commit -m "Update binary and release artifacts for ${{ matrix.target }}" || {
+            echo "Git commit failed"
+            exit 1
+          }
+          
+          # Push changes with error checking
+          git push || {
+            echo "Git push failed"
+            exit 1
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
