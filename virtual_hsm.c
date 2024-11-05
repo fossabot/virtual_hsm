@@ -100,15 +100,15 @@ void handle_sign_command(const CommandLineArgs* args) {
     if (args->input_file) {
         data = read_file(args->input_file, &data_len);
         if (!data) {
-            fprintf(stderr, "Error: Failed to read input file\n");
-            exit(1);
+            fprintf(stderr, "Error: Failed to read input file '%s'\n", args->input_file);
+            return;
         }
     } else if (args->input_string) {
         data = (unsigned char*)args->input_string;
         data_len = strlen(args->input_string);
     } else {
         fprintf(stderr, "Error: No input data provided for signing\n");
-        exit(1);
+        return;
     }
 
     unsigned char signature[MAX_SIGNATURE_SIZE];
@@ -125,8 +125,6 @@ void handle_sign_command(const CommandLineArgs* args) {
         }
     } else {
         fprintf(stderr, "Error: Signing failed\n");
-        free(data);
-        exit(1);
     }
 
     free(data);
