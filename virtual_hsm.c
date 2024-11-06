@@ -145,22 +145,26 @@ void handle_sign_command(const CommandLineArgs* args) {
             if (!write_file(args->output_file, signature, sig_len)) {
                 fprintf(stderr, "Error: Failed to write signature to file\n");
                 free(data);
+                data = NULL;
                 exit(1);
             }
         } else {
             if (fwrite(signature, 1, sig_len, stdout) != sig_len) {
                 fprintf(stderr, "Error: Failed to write signature to stdout\n");
                 free(data);
+                data = NULL;
                 exit(1);
             }
         }
     } else {
         fprintf(stderr, "Error: Signing failed\n");
         free(data);
+        data = NULL;
         exit(1);
     }
 
     free(data);
+    data = NULL;
 }
 
 int handle_verify_command(const CommandLineArgs* args) {
@@ -224,9 +228,11 @@ int handle_verify_command(const CommandLineArgs* args) {
 
 void handle_export_public_key_command(const char* key_name) {
     char *pem_key;
+    pem_key = NULL;
     if (export_public_key(key_name, &pem_key)) {
         printf("%s", pem_key);
         free(pem_key);
+        pem_key = NULL;
     } else {
         fprintf(stderr, "Public key export failed\n");
         exit(1);
@@ -243,6 +249,7 @@ void handle_import_public_key_command(const CommandLineArgs* args) {
             strncpy(pem_key, (char*)data, sizeof(pem_key) - 1);
             pem_key[sizeof(pem_key) - 1] = '\0';
             free(data);
+            data = NULL;
         } else {
             fprintf(stderr, "Error: Failed to read input file\n");
             exit(1);
