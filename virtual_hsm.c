@@ -259,38 +259,3 @@ void handle_import_public_key_command(const CommandLineArgs* args) {
         exit(1);
     }
 }
-
-void store_public_key(const char *name, const unsigned char *key, size_t key_len) {
-    if (!name || !key || key_len != KEY_SIZE) {
-        fprintf(stderr, "Error: Invalid parameters for store_public_key\n");
-        exit(1);
-    }
-
-    if (key_count >= MAX_KEYS) {
-        fprintf(stderr, "Error: Keystore is full\n");
-        exit(1);
-    }
-
-    if (strlen(name) > MAX_NAME_LENGTH) {
-        fprintf(stderr, "Error: Key name is too long\n");
-        exit(1);
-    }
-
-    // Check if key already exists
-    for (int i = 0; i < key_count; i++) {
-        if (strcmp(keystore[i].name, name) == 0) {
-            fprintf(stderr, "Error: Key with name '%s' already exists\n", name);
-            exit(1);
-        }
-    }
-
-    KeyEntry *entry = &keystore[key_count++];
-    strncpy(entry->name, name, MAX_NAME_LENGTH);
-    entry->name[MAX_NAME_LENGTH] = '\0';
-    entry->is_public_key = 1;
-    memcpy(entry->key_data, key, KEY_SIZE);
-    entry->encrypted_len = KEY_SIZE;
-
-    save_keystore();
-    DEBUG_PRINT("Public key '%s' stored successfully", name);
-}
