@@ -25,7 +25,7 @@ unsigned char master_key[KEY_SIZE];
 char keystore_file[MAX_FILENAME] = "keystore.dat";
 char master_key_file[MAX_FILENAME] = "master.key";
 
-// Function prototypes //
+// Function prototypes
 void update_global_paths(const CommandLineArgs* args);
 void handle_sign_command(const CommandLineArgs* args);
 void handle_verify_command(const CommandLineArgs* args);
@@ -96,6 +96,11 @@ int main(int argc, char *argv[]) {
 }
 
 void handle_sign_command(const CommandLineArgs* args) {
+    if (!args) {
+        fprintf(stderr, "Error: Invalid arguments\n");
+        exit(1);
+    }
+
     unsigned char *data = NULL;
     size_t data_len = 0;
 
@@ -103,14 +108,20 @@ void handle_sign_command(const CommandLineArgs* args) {
         data = read_file(args->input_file, &data_len);
         if (!data) {
             fprintf(stderr, "Error: Failed to read input file '%s'\n", args->input_file);
-            return;
+            exit(1);
         }
     } else if (args->input_string) {
-        data = (unsigned char*)args->input_string;
         data_len = strlen(args->input_string);
+        data = (unsigned char*)malloc(data_len + 1);
+        if (!data) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            exit(1);
+        }
+        memcpy(data, args->input_string, data_len);
+        data[data_len] = '\0';
     } else {
         fprintf(stderr, "Error: No input data provided for signing\n");
-        return;
+        exit(1);
     }
 
     unsigned char signature[MAX_SIGNATURE_SIZE];
@@ -118,39 +129,87 @@ void handle_sign_command(const CommandLineArgs* args) {
 
     if (sign_data(args->key_name, data, data_len, signature, &sig_len)) {
         if (args->output_file) {
-            write_file(args->output_file, signature, sig_len);
+            if (!write_file(args->output_file, signature, sig_len)) {
+                fprintf(stderr, "Error: Failed to write signature to file\n");
+                free(data);
+                exit(1);
+            }
         } else {
             char default_output[MAX_FILENAME];
-            snprintf(default_output, sizeof(default_output), "%s_signed", args->input_file);
-            write_file(default_output, signature, sig_len);
+            snprintf(default_output, sizeof(default_output), "%s_signed", args->input_file ? args->input_file : "output");
+            if (!write_file(default_output, signature, sig_len)) {
+                fprintf(stderr, "Error: Failed to write signature to default file\n");
+                free(data);
+                exit(1);
+            }
             printf("Signature saved to: %s\n", default_output);
         }
     } else {
         fprintf(stderr, "Error: Signing failed\n");
+        free(data);
+        exit(1);
     }
 
     free(data);
 }
 
 void handle_verify_command(const CommandLineArgs* args) {
-    unsigned char signature[MAX_SIGNATURE_SIZE];
-    unsigned char *data = NULL;
-    size_t data_len = 0, sig_len = 0;
+    if (!args) {
+        fprintf(stderr, "Error: Invalid arguments\n");
+        exit(1);
+    }
 
+    if (!args->input_file && !args->input_string) {
+        fprintf(stderr, "Error: No input data provided for verification\n");
+        exit(1);
+    }
+
+    if (!args->signature_file) {
+        fprintf(stderr, "Error: No signature file provided\n");
+        exit(1);
+    }
+
+    unsigned char *data = NULL;
+    size_t data_len = 0;
+    unsigned char signature[MAX_SIGNATURE_SIZE];
+    size_t sig_len = 0;
+
+    // Read input data
     if (args->input_file) {
         data = read_file(args->input_file, &data_len);
-        sig_len = read_hex_string(args->input_string, signature, sizeof(signature));
-    } else if (args->input_string) {
-        data = (unsigned char*)args->input_string;
-        data_len = strlen(args->input_string);
-        sig_len = read_hex_string(args->input_string, signature, sizeof(signature));
+        if (!data) {
+            fprintf(stderr, "Error: Failed to read input file '%s'\n", args->input_file);
+            exit(1);
+        }
     } else {
-        fprintf(stderr, "Error: No input data or signature provided for verification\n");
+        data_len = strlen(args->input_string);
+        data = (unsigned char*)malloc(data_len + 1);
+        if (!data) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            exit(1);
+        }
+        memcpy(data, args->input_string, data_len);
+        data[data_len] = '\0';
+    }
+
+    // Read signature
+    FILE *sig_file = fopen(args->signature_file, "rb");
+    if (!sig_file) {
+        fprintf(stderr, "Error: Failed to open signature file '%s'\n", args->signature_file);
+        free(data);
+        exit(1);
+    }
+    sig_len = fread(signature, 1, sizeof(signature), sig_file);
+    fclose(sig_file);
+
+    if (sig_len == 0) {
+        fprintf(stderr, "Error: Failed to read signature\n");
+        free(data);
         exit(1);
     }
 
     if (verify_signature(args->key_name, data, data_len, signature, sig_len)) {
-        printf("Signature verified\n");
+        printf("Signature verified successfully\n");
     } else {
         fprintf(stderr, "Error: Signature verification failed\n");
         free(data);
@@ -199,4 +258,39 @@ void handle_import_public_key_command(const CommandLineArgs* args) {
         fprintf(stderr, "Public key import failed\n");
         exit(1);
     }
+}
+
+void store_public_key(const char *name, const unsigned char *key, size_t key_len) {
+    if (!name || !key || key_len != KEY_SIZE) {
+        fprintf(stderr, "Error: Invalid parameters for store_public_key\n");
+        exit(1);
+    }
+
+    if (key_count >= MAX_KEYS) {
+        fprintf(stderr, "Error: Keystore is full\n");
+        exit(1);
+    }
+
+    if (strlen(name) > MAX_NAME_LENGTH) {
+        fprintf(stderr, "Error: Key name is too long\n");
+        exit(1);
+    }
+
+    // Check if key already exists
+    for (int i = 0; i < key_count; i++) {
+        if (strcmp(keystore[i].name, name) == 0) {
+            fprintf(stderr, "Error: Key with name '%s' already exists\n", name);
+            exit(1);
+        }
+    }
+
+    KeyEntry *entry = &keystore[key_count++];
+    strncpy(entry->name, name, MAX_NAME_LENGTH);
+    entry->name[MAX_NAME_LENGTH] = '\0';
+    entry->is_public_key = 1;
+    memcpy(entry->key_data, key, KEY_SIZE);
+    entry->encrypted_len = KEY_SIZE;
+
+    save_keystore();
+    DEBUG_PRINT("Public key '%s' stored successfully", name);
 }
