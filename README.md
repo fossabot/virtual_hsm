@@ -1,4 +1,6 @@
 # Virtual Hardware Security Management (HSM) Program
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fahillelt%2Fvirtual_hsm.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fahillelt%2Fvirtual_hsm?ref=badge_shield)
+
 
 A virtualized hardware security management tool.
 
@@ -239,3 +241,7 @@ This implementation is for educational purposes and lacks several security featu
 - No protection against key overwriting
 - No built-in key rotation mechanism
 - And many more!
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fahillelt%2Fvirtual_hsm.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fahillelt%2Fvirtual_hsm?ref=badge_large)
