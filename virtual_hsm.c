@@ -28,7 +28,7 @@ char master_key_file[MAX_FILENAME] = "master.key";
 // Function prototypes
 void update_global_paths(const CommandLineArgs* args);
 void handle_sign_command(const CommandLineArgs* args);
-void handle_verify_command(const CommandLineArgs* args);
+int handle_verify_command(const CommandLineArgs* args);
 void handle_export_public_key_command(const char* key_name);
 void handle_import_public_key_command(const CommandLineArgs* args);
 
@@ -155,7 +155,7 @@ void handle_sign_command(const CommandLineArgs* args) {
 
 int handle_verify_command(const CommandLineArgs* args) {
     unsigned char data[MAX_DATA_SIZE];
-    unsigned char signature[SIGNATURE_SIZE];
+    unsigned char signature[MAX_SIGNATURE_SIZE];
     size_t data_len;
     size_t sig_len;
     
@@ -167,8 +167,8 @@ int handle_verify_command(const CommandLineArgs* args) {
             return 0;
         }
         
-        sig_len = fread(signature, 1, SIGNATURE_SIZE, stdin);
-        if (sig_len != SIGNATURE_SIZE) {
+        sig_len = fread(signature, 1, MAX_SIGNATURE_SIZE, stdin);
+        if (sig_len != MAX_SIGNATURE_SIZE) {
             fprintf(stderr, "Error: Invalid signature length or missing signature\n");
             return 0;
         }
@@ -195,17 +195,17 @@ int handle_verify_command(const CommandLineArgs* args) {
             return 0;
         }
         
-        sig_len = fread(signature, 1, SIGNATURE_SIZE, sig_file);
+        sig_len = fread(signature, 1, MAX_SIGNATURE_SIZE, sig_file);
         fclose(sig_file);
         
-        if (sig_len != SIGNATURE_SIZE) {
+        if (sig_len != MAX_SIGNATURE_SIZE) {
             fprintf(stderr, "Error: Invalid signature length in file '%s'\n", args->signature_file);
             return 0;
         }
     }
     
-    // Verify the signature using the loaded data and signature
-    return verify_signature(args->key_name, data, data_len, signature);
+    // Call verify_signature with all required parameters
+    return verify_signature(args->key_name, data, data_len, signature, sig_len);
 }
 
 void handle_export_public_key_command(const char* key_name) {
