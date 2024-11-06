@@ -103,6 +103,7 @@ void handle_sign_command(const CommandLineArgs* args) {
 
     unsigned char *data = NULL;
     size_t data_len = 0;
+    char buffer[BUFFER_SIZE];
 
     if (args->input_file) {
         data = read_file(args->input_file, &data_len);
@@ -120,14 +121,26 @@ void handle_sign_command(const CommandLineArgs* args) {
         memcpy(data, args->input_string, data_len);
         data[data_len] = '\0';
     } else {
-        fprintf(stderr, "Error: No input data provided for signing\n");
-        exit(1);
+        // Read from stdin
+        data_len = fread(buffer, 1, sizeof(buffer) - 1, stdin);
+        if (data_len == 0) {
+            fprintf(stderr, "Error: No input data provided for signing\n");
+            exit(1);
+        }
+        data = (unsigned char*)malloc(data_len + 1);
+        if (!data) {
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            exit(1);
+        }
+        memcpy(data, buffer, data_len);
+        data[data_len] = '\0';
     }
 
     unsigned char signature[MAX_SIGNATURE_SIZE];
     size_t sig_len = sizeof(signature);
 
     if (sign_data(args->key_name, data, data_len, signature, &sig_len)) {
+        // Write signature to stdout if no output file specified
         if (args->output_file) {
             if (!write_file(args->output_file, signature, sig_len)) {
                 fprintf(stderr, "Error: Failed to write signature to file\n");
@@ -135,14 +148,11 @@ void handle_sign_command(const CommandLineArgs* args) {
                 exit(1);
             }
         } else {
-            char default_output[MAX_FILENAME];
-            snprintf(default_output, sizeof(default_output), "%s_signed", args->input_file ? args->input_file : "output");
-            if (!write_file(default_output, signature, sig_len)) {
-                fprintf(stderr, "Error: Failed to write signature to default file\n");
+            if (fwrite(signature, 1, sig_len, stdout) != sig_len) {
+                fprintf(stderr, "Error: Failed to write signature to stdout\n");
                 free(data);
                 exit(1);
             }
-            printf("Signature saved to: %s\n", default_output);
         }
     } else {
         fprintf(stderr, "Error: Signing failed\n");
