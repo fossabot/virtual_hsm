@@ -329,6 +329,13 @@ jobs:
 
       - name: Commit and push binary with verification
         run: |
+          # Fetch latest changes
+          git fetch origin
+          
+          # Create and switch to a new temporary branch
+          TEMP_BRANCH="build-${{ matrix.target }}-${GITHUB_SHA::8}"
+          git checkout -b $TEMP_BRANCH
+          
           # Verify binary exists before git operations
           if [ ! -f "${{ matrix.output }}" ]; then
             echo "Error: Binary ${{ matrix.output }} not found in root directory"
@@ -371,24 +378,41 @@ jobs:
           echo "Git status before commit:"
           git status
           
-          # Fetch remote changes before committing
-          git fetch
-          git pull || {
-            echo "Git pull failed"
-            exit 1
-          }
-          
           # Commit changes
           git commit -m "Update binary and release artifacts for ${{ matrix.target }}" || {
             echo "Git commit failed"
             exit 1
           }
           
-          # Push changes
-          git push || {
-            echo "Git push failed"
+          # Fetch again to ensure we have latest changes
+          git fetch origin main
+          
+          # Rebase onto main to incorporate any changes that happened during build
+          git rebase origin/main || {
+            echo "Rebase failed, attempting to resolve conflicts"
+            # If rebase fails, abort and try merge strategy
+            git rebase --abort
+            git merge origin/main --strategy-option theirs || {
+              echo "Both rebase and merge failed"
+              exit 1
+            }
+          }
+          
+          # Force push the temporary branch
+          git push origin $TEMP_BRANCH -f || {
+            echo "Failed to push temporary branch"
             exit 1
           }
+          
+          # Create a pull request using GitHub CLI if available, otherwise output instructions
+          if command -v gh &> /dev/null; then
+            gh pr create --base main --head $TEMP_BRANCH \
+              --title "Update binaries for ${{ matrix.target }}" \
+              --body "Automated PR to update binaries for ${{ matrix.target }}" \
+              || echo "Failed to create PR automatically, please create manually"
+          else
+            echo "Please create a pull request from branch $TEMP_BRANCH to main"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
