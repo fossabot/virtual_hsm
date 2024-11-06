@@ -19,7 +19,9 @@ typedef struct {
     const char* key_name;
     const char* input_file;
     const char* output_file;
+    const char* signature_file; 
     const char* input_string;
+    int use_stdin;              // Flag to indicate if using stdin
 } CommandLineArgs;
 
 // Function prototypes
@@ -35,6 +37,11 @@ void init_command_line_args(CommandLineArgs* args) {
     args->provided_master_key = NULL;
     args->command = NULL;
     args->key_name = NULL;
+    args->input_file = NULL;
+    args->output_file = NULL;
+    args->signature_file = NULL;
+    args->input_string = NULL;
+    args->use_stdin = 0;
 }
 
 void print_usage(void) {
@@ -77,14 +84,13 @@ void print_usage(void) {
     fprintf(stderr, "                                  # Without saving signature (NOT RECOMMENDED):\n");
     fprintf(stderr, "                                  echo -n \"hello\" | ./virtual_hsm -sign signing_key\n\n");
     
-    fprintf(stderr, "    -verify <key_name>         Verify signature (requires both data AND signature)\n");
-    fprintf(stderr, "                                The input must contain both the original data AND\n");
-    fprintf(stderr, "                                its signature concatenated together.\n");
-    fprintf(stderr, "                                Examples:\n");
-    fprintf(stderr, "                                  # Verify file and its signature:\n");
-    fprintf(stderr, "                                  cat file.txt signature.bin | ./virtual_hsm -verify signing_key_public\n");
-    fprintf(stderr, "                                  # Verify string data with its signature:\n");
-    fprintf(stderr, "                                  (echo -n \"hello\"; cat signature.bin) | ./virtual_hsm -verify signing_key_public\n\n");
+    fprintf(stderr, "    -verify <key_name>         Verify signature using either:\n");
+    fprintf(stderr, "                                1. Concatenated input via stdin:\n");
+    fprintf(stderr, "                                   cat file.txt signature.bin | ./virtual_hsm -verify signing_key_public\n");
+    fprintf(stderr, "                                   (echo -n \"hello\"; cat signature.bin) | ./virtual_hsm -verify signing_key_public\n\n");
+    fprintf(stderr, "                                2. Separate files:\n");
+    fprintf(stderr, "                                   ./virtual_hsm -verify signing_key_public -in data.txt -sig signature.bin\n\n");
+    
     
     fprintf(stderr, "    -export_public_key <name>   Export public key in PEM format\n");
     fprintf(stderr, "                                Example: ./virtual_hsm -export_public_key signing_key_public\n\n");
@@ -156,6 +162,30 @@ int handle_arguments(int argc, char *argv[], CommandLineArgs* args) {
     if (i + 1 < argc && strcmp(args->command, "-list") != 0 && 
         strcmp(args->command, "-generate_master_key") != 0) {
         args->key_name = argv[i + 1];
+        i++;  // Move past the key name
+    }
+
+    // Parse additional arguments for verify command
+    if (strcmp(args->command, "-verify") == 0) {
+        args->use_stdin = 1;  // Default to stdin unless files are specified
+        
+        // Parse remaining arguments for file inputs
+        for (i++; i < argc; i++) {
+            if (strcmp(argv[i], "-in") == 0 && i + 1 < argc) {
+                args->input_file = argv[++i];
+                args->use_stdin = 0;
+            } else if (strcmp(argv[i], "-sig") == 0 && i + 1 < argc) {
+                args->signature_file = argv[++i];
+                args->use_stdin = 0;
+            }
+        }
+
+        // Validate that if one file is specified, both must be
+        if ((args->input_file && !args->signature_file) || 
+            (!args->input_file && args->signature_file)) {
+            fprintf(stderr, "Error: Both -in and -sig must be specified when using file inputs\n");
+            return 0;
+        }
     }
 
     // Validate command and arguments
