@@ -14,6 +14,10 @@
 #define BUFFER_SIZE 1024
 #define SIG_LENGTH 64
 
+// data sizes
+#define MAX_DATA_SIZE 1048576  // 1MB max data size
+#define MAX_SIGNATURE_SIZE 64  // ED25519 signature size
+
 //Performance
 // how much to increase our array when dynamically resizing
 #define ARRAY_EXPANSION_MULTIPLE 2 
