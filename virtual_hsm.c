@@ -153,70 +153,59 @@ void handle_sign_command(const CommandLineArgs* args) {
     free(data);
 }
 
-void handle_verify_command(const CommandLineArgs* args) {
-    if (!args) {
-        fprintf(stderr, "Error: Invalid arguments\n");
-        exit(1);
-    }
-
-    if (!args->input_file && !args->input_string) {
-        fprintf(stderr, "Error: No input data provided for verification\n");
-        exit(1);
-    }
-
-    if (!args->signature_file) {
-        fprintf(stderr, "Error: No signature file provided\n");
-        exit(1);
-    }
-
-    unsigned char *data = NULL;
-    size_t data_len = 0;
-    unsigned char signature[MAX_SIGNATURE_SIZE];
-    size_t sig_len = 0;
-
-    // Read input data
-    if (args->input_file) {
-        data = read_file(args->input_file, &data_len);
-        if (!data) {
-            fprintf(stderr, "Error: Failed to read input file '%s'\n", args->input_file);
-            exit(1);
+int handle_verify_command(const CommandLineArgs* args) {
+    unsigned char data[MAX_DATA_SIZE];
+    unsigned char signature[SIGNATURE_SIZE];
+    size_t data_len;
+    size_t sig_len;
+    
+    if (args->use_stdin) {
+        // Read concatenated data and signature from stdin
+        data_len = fread(data, 1, sizeof(data) - 1, stdin);
+        if (data_len == 0) {
+            fprintf(stderr, "Error: No data provided for verification\n");
+            return 0;
+        }
+        
+        sig_len = fread(signature, 1, SIGNATURE_SIZE, stdin);
+        if (sig_len != SIGNATURE_SIZE) {
+            fprintf(stderr, "Error: Invalid signature length or missing signature\n");
+            return 0;
         }
     } else {
-        data_len = strlen(args->input_string);
-        data = (unsigned char*)malloc(data_len + 1);
-        if (!data) {
-            fprintf(stderr, "Error: Memory allocation failed\n");
-            exit(1);
+        // Read data from input file
+        FILE *data_file = fopen(args->input_file, "rb");
+        if (!data_file) {
+            fprintf(stderr, "Error: Failed to open input file '%s'\n", args->input_file);
+            return 0;
         }
-        memcpy(data, args->input_string, data_len);
-        data[data_len] = '\0';
+        
+        data_len = fread(data, 1, sizeof(data) - 1, data_file);
+        fclose(data_file);
+        
+        if (data_len == 0) {
+            fprintf(stderr, "Error: No data read from file '%s'\n", args->input_file);
+            return 0;
+        }
+        
+        // Read signature from signature file
+        FILE *sig_file = fopen(args->signature_file, "rb");
+        if (!sig_file) {
+            fprintf(stderr, "Error: Failed to open signature file '%s'\n", args->signature_file);
+            return 0;
+        }
+        
+        sig_len = fread(signature, 1, SIGNATURE_SIZE, sig_file);
+        fclose(sig_file);
+        
+        if (sig_len != SIGNATURE_SIZE) {
+            fprintf(stderr, "Error: Invalid signature length in file '%s'\n", args->signature_file);
+            return 0;
+        }
     }
-
-    // Read signature
-    FILE *sig_file = fopen(args->signature_file, "rb");
-    if (!sig_file) {
-        fprintf(stderr, "Error: Failed to open signature file '%s'\n", args->signature_file);
-        free(data);
-        exit(1);
-    }
-    sig_len = fread(signature, 1, sizeof(signature), sig_file);
-    fclose(sig_file);
-
-    if (sig_len == 0) {
-        fprintf(stderr, "Error: Failed to read signature\n");
-        free(data);
-        exit(1);
-    }
-
-    if (verify_signature(args->key_name, data, data_len, signature, sig_len)) {
-        printf("Signature verified successfully\n");
-    } else {
-        fprintf(stderr, "Error: Signature verification failed\n");
-        free(data);
-        exit(1);
-    }
-
-    free(data);
+    
+    // Verify the signature using the loaded data and signature
+    return verify_signature(args->key_name, data, data_len, signature);
 }
 
 void handle_export_public_key_command(const char* key_name) {
