@@ -154,21 +154,21 @@ void handle_sign_command(const CommandLineArgs* args) {
 }
 
 int handle_verify_command(const CommandLineArgs* args) {
-    unsigned char data[MAX_DATA_SIZE];
-    unsigned char signature[MAX_SIGNATURE_SIZE];
-    size_t data_len;
-    size_t sig_len;
+    unsigned char data[BUFFER_SIZE];
+    unsigned char signature[SIG_LENGTH];
+    size_t data_len = 0;
+    size_t sig_len = 0;
     
     if (args->use_stdin) {
         // Read concatenated data and signature from stdin
-        data_len = fread(data, 1, sizeof(data) - 1, stdin);
+        data_len = fread(data, 1, BUFFER_SIZE - 1, stdin);
         if (data_len == 0) {
             fprintf(stderr, "Error: No data provided for verification\n");
             return 0;
         }
         
-        sig_len = fread(signature, 1, MAX_SIGNATURE_SIZE, stdin);
-        if (sig_len != MAX_SIGNATURE_SIZE) {
+        sig_len = fread(signature, 1, SIG_LENGTH, stdin);
+        if (sig_len != SIG_LENGTH) {
             fprintf(stderr, "Error: Invalid signature length or missing signature\n");
             return 0;
         }
@@ -180,7 +180,7 @@ int handle_verify_command(const CommandLineArgs* args) {
             return 0;
         }
         
-        data_len = fread(data, 1, sizeof(data) - 1, data_file);
+        data_len = fread(data, 1, BUFFER_SIZE - 1, data_file);
         fclose(data_file);
         
         if (data_len == 0) {
@@ -195,17 +195,21 @@ int handle_verify_command(const CommandLineArgs* args) {
             return 0;
         }
         
-        sig_len = fread(signature, 1, MAX_SIGNATURE_SIZE, sig_file);
+        sig_len = fread(signature, 1, SIG_LENGTH, sig_file);
         fclose(sig_file);
         
-        if (sig_len != MAX_SIGNATURE_SIZE) {
+        if (sig_len != SIG_LENGTH) {
             fprintf(stderr, "Error: Invalid signature length in file '%s'\n", args->signature_file);
             return 0;
         }
     }
     
     // Call verify_signature with all required parameters
-    return verify_signature(args->key_name, data, data_len, signature, sig_len);
+    if (data_len > 0 && sig_len == SIG_LENGTH) {
+        return verify_signature(args->key_name, data, data_len, signature, sig_len);
+    }
+    
+    return 0;
 }
 
 void handle_export_public_key_command(const char* key_name) {
